@@ -20,16 +20,21 @@
 typedef struct commandGroup {
     char *command[3];
     char *argv[3][MAX_ARGS];
-    //int pipeType; // 0: no pipe 1: single pipe  2: double pipe 3: triple pipe
+    int pipeType; //number of commands in a command group, (can take 1/2/3)
     bool inputRedirect[3];
     bool outputRedirect[3];
     bool outputAppend[3];
-    int inputFilename[3][MAX_ARGLEN];
-    int outputFilename[3][MAX_ARGLEN];
-    bool isBackground;
+    char *inputFilename[3];
+    char *outputFilename[3];
+    bool isBackground[3];
 
     struct commandGroup* next;
 } commandGroup;
+
+typedef struct pipeline{
+    commandGroup *firstCommand;
+    int numberOfCommands;
+}pipeline;
 
 commandGroup* parseInput(char** arg);
 
