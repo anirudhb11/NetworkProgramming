@@ -42,7 +42,7 @@ int main(int argc, char const *argv[])
     int servSocket, clntSocket;
     struct sockaddr_in serv_addr, clnt_addr;
     if((servSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-        printf("\nServer Socket Creation Failed");
+        printf("\nServer Socket Creation Failed\n");
     }
 
     serv_addr.sin_family = AF_INET;
@@ -50,13 +50,13 @@ int main(int argc, char const *argv[])
     serv_addr.sin_port = htons(SERV_PORT);
 
     if(bind(servSocket, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0) {
-        printf("\nServer bind failed");
+        printf("\nServer bind failed\n");
     }
 
     printf("1 reached");
 
     if(listen(servSocket, MAX_PENDING) < 0) {
-        printf("\nServer listen failed");
+        printf("\nServer listen failed\n");
     }
 
     for(;;) {
@@ -76,8 +76,12 @@ int main(int argc, char const *argv[])
             char c;
             close(servSocket);
             while(1) {
-                read(clntSocket, cmd_buffer, PATH_MAX);
-                printf("The command is: %s and process id is: %d", cmd_buffer, getpid());
+                if(read(clntSocket, cmd_buffer, PATH_MAX) == 0) {
+                    printf("sf");
+                    exit(0);
+                }
+                printf("The command is: %s and process id is: %d\n", cmd_buffer, getpid());
+                fflush(stdout);
                 // scanf("%c",&c);
             }
             // 
