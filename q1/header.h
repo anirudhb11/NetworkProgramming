@@ -11,6 +11,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <setjmp.h>
 
 #define BUFFSIZE 1024
 #define CMDSIZE 128
@@ -26,7 +27,7 @@ typedef struct commandGroup {
     bool outputAppend[3];
     char *inputFilename[3];
     char *outputFilename[3];
-    bool isBackground[3];
+    bool isBackground;
 
     struct commandGroup* next;
 } commandGroup;
@@ -38,10 +39,12 @@ typedef struct pipeline{
 
 commandGroup* parseInput(char** arg);
 
-int singlePipe(char **ar1, char **ar2);
-int doublePipe(char **ar1, char **ar2);
-int triplePipe(char **ar1, char** ar2);
-int execCommand(commandGroup* cmd);
+bool requiresInputRedirection(commandGroup *cmd);
+bool requiresOutputRedirection(commandGroup *cmd);
+void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes);
+void execCommandPipeline(pipeline cmdPipeline);
+void command_initialization( commandGroup *cmd);
+
 
 
 
