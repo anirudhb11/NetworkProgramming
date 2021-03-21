@@ -74,19 +74,22 @@ void executor(char * cmd, char * directory, int clntSocket) {
             int ch_out = chdir(directory);
             if(ch_out < 0) {
                 perror("Change directory error: ");
-                exit(0);
+                exit(1);
             }
             if(execvp(args[0],args) < 0) {
                 // close(1);
                 // dup2(1);
-                printf("Coudn't execute command");
-                exit(0);
+                printf("\nCoudn't execute command\n");
+                perror("Execution error: ");
+                exit(1);
             }
         } else {
             //Closing write end of pipe.
             close(p[1]);
-            while(read(p[0],buff,BUFFER_SIZE) > 0 ) {
-                write(clntSocket,buff,BUFFER_SIZE);
+            int num_bytes;
+            while((num_bytes = read(p[0],buff,BUFFER_SIZE)) > 0 ) {
+                printf("%d\n",num_bytes);
+                write(clntSocket,buff,num_bytes);
             }
             wait(NULL);
             return;
@@ -97,20 +100,13 @@ void executor(char * cmd, char * directory, int clntSocket) {
 
 }
 
-// int main(int argc, char const *argv[])
-// {
-//     char cmd[] = "lp -a";
-//     executor(cmd, "./..");
-//     return 0;
-// }
-
-
 int main(int argc, char const *argv[])
 {
     int servSocket, clntSocket;
     struct sockaddr_in serv_addr, clnt_addr;
     if((servSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         printf("\nServer Socket Creation Failed\n");
+        exit(1);
     }
 
     serv_addr.sin_family = AF_INET;
@@ -119,19 +115,20 @@ int main(int argc, char const *argv[])
 
     if(bind(servSocket, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0) {
         printf("\nServer bind failed\n");
+        exit(1);
     }
-
-    printf("\n1 reached\n");
 
     if(listen(servSocket, MAX_PENDING) < 0) {
         printf("\nServer listen failed\n");
+        exit(1);
     }
 
     for(;;) {
         socklen_t clntLen = sizeof(clnt_addr);
-        printf("\n2 reached\n");
+
         if((clntSocket = accept(servSocket,(struct sockaddr*) &clnt_addr, &clntLen)) <0 ) {
             printf("\nAccept connection failed on incoming connection");
+            continue;
         }
 
         printf("\nHandling client: %s",inet_ntoa(clnt_addr.sin_addr));
@@ -143,17 +140,16 @@ int main(int argc, char const *argv[])
             char cmd_buffer[PATH_MAX];
             char c;
             close(servSocket);
-            while(1) {
-                if(read(clntSocket, cmd_buffer, PATH_MAX) == 0) {
-                    printf("Process ended by client");
-                    exit(0);
-                }
-                printf("The command is: %s and process id is: %d\n", cmd_buffer, getpid());
-                executor(cmd_buffer,".",clntSocket);
-                printf("\nYOLO!!\n");
-
-                fflush(stdout);
+            if(read(clntSocket, cmd_buffer, PATH_MAX) == 0) {
+                printf("\nProcess ended by client\n");
+                exit(0);
             }
+            printf("\nThe command is: %s and serving process id is: %d\n", cmd_buffer, getpid());
+            executor(cmd_buffer,".",clntSocket);
+            exit(0);
+        }
+        else {
+            close(clntSocket);
         }
     }
 

@@ -8,7 +8,7 @@
 #include<strings.h>
 
 #define SERV_PORT 1234
-#define SERV_ADDR "172.17.74.12"
+#define SERV_ADDR "172.17.74.16"
 #define BUFFER_SIZE 20
 
 int main(int argc, char const *argv[])
@@ -23,22 +23,23 @@ int main(int argc, char const *argv[])
 
     serv_addr.sin_addr.s_addr = inet_addr(SERV_ADDR);
 
-    if((clntSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        printf("Client Socket creation failed");
-    } 
-
-    int res = connect(clntSocket, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
-    if(res < 0) {
-        perror("Connect failed: ");
-        exit(0);
-    }
-
-    printf("Connection Successful !");
-
-    char cmd[PATH_MAX];
     while(1) {
 
-        scanf("%s",cmd);
+        if((clntSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+            printf("Client Socket creation failed");
+        }
+
+        int res = connect(clntSocket, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+        if(res < 0) {
+            perror("Connect failed: ");
+            exit(0);
+        }
+
+        printf("Connection Successful !");
+
+        char cmd[PATH_MAX];
+
+        gets(cmd);
         if(strcmp(cmd,"exit") == 0) {
             close(clntSocket);
             exit(0);
@@ -46,9 +47,13 @@ int main(int argc, char const *argv[])
         printf("Writing cmd %s to terminal \n", cmd);
 
         write(clntSocket, cmd, PATH_MAX);
-        while(read(clntSocket,buff,BUFFER_SIZE) > 0) {
-            write(1,buff,BUFFER_SIZE);
+        int bytes_read;
+
+        while((bytes_read = read(clntSocket,buff,BUFFER_SIZE)) > 0) {
+            write(1,buff,bytes_read);
         }
+
+        printf("\nPOLO !!!\n");
     }
     return 0;
 }
