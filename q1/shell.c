@@ -1,22 +1,5 @@
 #include "header.h"
 
-/*
-
-typedef struct commandGroup {
-    char *command[3];
-    char *argv[3][MAX_ARGS];
-    //int pipeType; // 0: no pipe 1: single pipe  2: double pipe 3: triple pipe
-    bool inputRedirect[3];
-    bool outputRedirect[3];
-    bool outputAppend[3];
-    int inputFilename[3][MAX_ARGLEN];
-    int outputFilename[3][MAX_ARGLEN];
-    bool isBackground;
-
-    struct commandGroup* next;
-} commandGroup;
-
-*/
 commandGroup* makeCommand()
 {
     commandGroup* cmd =(commandGroup*) malloc(sizeof(commandGroup));
@@ -24,11 +7,61 @@ commandGroup* makeCommand()
 
     cmd->next = NULL;
     cmd->command[0] = "/bin/ls"; cmd->command[1] = NULL; cmd->command[2] = NULL;
-    cmd->argv[0][0] = "ls";
+    cmd->argv[0] = "ls";
     cmd->next = NULL;
 
   
     return cmd;
+
+}
+void printCommandGrp(commandGroup* cmd)
+{
+    //printf("IS BG: %d\n", cmd->isBackground);
+    
+    printf("COMMANDS: ");
+    int i = 0;
+    while(cmd->command[i]) 
+        printf("%s ," , cmd->command[i++]);
+    printf("\n");
+
+    printf("ARGS : ");
+    i = 0;
+    while (cmd->argv[i])
+        printf("%s ,", cmd->argv[i++]);
+    printf("\n");
+
+
+
+    printf("INP REDIR: ");
+    i = 0;
+    while (cmd->inputRedirect[i])
+        printf("%d ,", cmd->inputRedirect[i++]);
+    printf("\n");
+
+    printf("INP FNAME: ");
+    i = 0;
+    while (cmd->inputFilename[i])
+        printf("%s ,", cmd->inputFilename[i++]);
+    printf("\n");
+
+
+    printf("OUTPUT REDIR: ");
+    i = 0;
+    while (cmd->outputRedirect[i])
+        printf("%d ,", cmd->outputRedirect[i++]);
+    printf("\n");
+
+    printf("OUTPUT APPEND: ");
+    i = 0;
+    while (cmd->outputAppend[i])
+        printf("%d ,", cmd->outputAppend[i++]);
+    printf("\n");
+
+    printf("OP FNAME: ");
+    i = 0;
+    while (cmd->outputFilename[i])
+        printf("%s ,", cmd->outputFilename[i++]);
+    printf("\n ********************************** \n");
 
 }
 int main(int argc, char *argv[])
@@ -69,6 +102,7 @@ int main(int argc, char *argv[])
 
         input[pos] = '\0';
 
+        /*
         int i = 0;
         char **aarg = malloc(sizeof(char) * BUFFSIZE);
         const char *space = " ";
@@ -90,20 +124,26 @@ int main(int argc, char *argv[])
             printf("%s \n" , aarg[j]);
             j++;
         }
-        */
         
         
-        /*
+        
+        
 
         commandGroup* cmd = parseInput(aarg);
         a = execCommand(cmd);
         
         */
 
-        a = execCommand(makeCommand());
-        a = 1;
-
-        //printf("%d \n", a);
+        commandGroup* cmd = parseInput(input);
+        
+        
+        while(cmd)
+        {
+            
+            printCommandGrp(cmd);
+            cmd = cmd->next;
+        }
+        /**/
     }
 
     

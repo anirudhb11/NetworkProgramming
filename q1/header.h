@@ -14,12 +14,13 @@
 
 #define BUFFSIZE 1024
 #define CMDSIZE 128
-#define MAX_ARGS 2
+#define MAX_ARGS 3
 #define MAX_ARGLEN 128
+#define WHITESPACE_DELIM " \t\r\n\a"
 
 typedef struct commandGroup {
     char *command[3];
-    char *argv[3][MAX_ARGS];
+    char *argv[MAX_ARGS];
     int pipeType; //number of commands in a command group, (can take 1/2/3)
     bool inputRedirect[3];
     bool outputRedirect[3];
@@ -36,19 +37,11 @@ typedef struct pipeline{
     int numberOfCommands;
 }pipeline;
 
-commandGroup* parseInput(char** arg);
+commandGroup* parseInput(char* arg);
+bool search(char *inp, char ch);
+int charPos(char *inp, char ch);
+char *slicestring(int left, int right, char *inp);
+char *trimwhitespace(char *str);
+char **tokenize(char *line);
 
-int singlePipe(char **ar1, char **ar2);
-int doublePipe(char **ar1, char **ar2);
-int triplePipe(char **ar1, char** ar2);
-int execCommand(commandGroup* cmd);
-
-
-
-
-
-
-
-
-
-
+int execCommand(commandGroup *cmd);
