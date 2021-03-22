@@ -10,7 +10,13 @@
 #define SERV_PORT 1234
 #define MAX_PENDING 128
 #define BUFFER_SIZE 20
+#define CONFIG_FILE_PATH "./config.txt"
+#define NODE_COUNT 3
 
+typedef struct Map {
+    char* node;
+    char* ip;
+} Map;
 
 int change_dir(char *abs_p, char *relativ_p) {
     //given old absolute path and new relative path the function returns new
@@ -37,6 +43,72 @@ int change_dir(char *abs_p, char *relativ_p) {
     }
 
     return 0;
+}
+
+// Map** fill_map(Map ** ip_map_list, char* line) {
+
+//     char *node = strtok(line, " ");
+//     char *ip = strtok(NULL, " ");
+//     char *temp = strtok(NULL, "\n");
+//     Map  *ip_map;
+
+//     if(ip_map_list == NULL) {
+//         ip_map = (Map *) malloc(sizeof(Map));
+//         ip_map->node = node;
+//         ip_map->ip = ip;
+//         ip_map->next = NULL;
+//         ip_map_list = &ip_map;
+//     } else {
+//         ip_map = *ip_map_list;
+//         while(ip_map->next != NULL) {
+//             ip_map = ip_map -> next;
+//         }
+//         Map * map = (Map *) malloc(sizeof(Map));
+//         map->node = node;
+//         map->ip = ip;
+//         map->next = NULL;
+//         ip_map->next = map;
+//     }
+
+//     return ip_map_list;
+    
+// }
+
+Map* file_loader(char *config_file_path) {
+    //Assuming the ip mapping is stored in config.txt
+    FILE * fp;
+    char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+
+    Map * ip_map = (Map *) malloc(NODE_COUNT * sizeof(Map));
+
+    fp = fopen(config_file_path, "r");
+    if(fp == NULL) {
+        printf("\nConfig file loading error\n");
+        exit(1);
+    }
+
+    int count = 0;
+
+    while ((read = getline(&line,&len, fp)) != -1)
+    {
+        if(count >= NODE_COUNT) {
+            printf("\nBad config file. More IPs than configuration\n");
+            exit(1);
+        }
+        char * temp = (char *) malloc(sizeof(char) * len);
+        strcpy(temp,line);
+        char *node = strtok(temp, " \n");
+        char *ip = strtok(NULL, " \n");
+        ip_map[count].node = node;
+        ip_map[count].ip = ip;
+
+        count++;
+    }
+
+    fclose(fp);
+    return ip_map;
 }
 
 void executor(char * cmd, char * directory, int clntSocket) {
@@ -88,7 +160,6 @@ void executor(char * cmd, char * directory, int clntSocket) {
             close(p[1]);
             int num_bytes;
             while((num_bytes = read(p[0],buff,BUFFER_SIZE)) > 0 ) {
-                printf("%d\n",num_bytes);
                 write(clntSocket,buff,num_bytes);
             }
             wait(NULL);
@@ -102,6 +173,9 @@ void executor(char * cmd, char * directory, int clntSocket) {
 
 int main(int argc, char const *argv[])
 {
+    // Loading ips' map into the system.
+    Map * ip_map = file_loader(CONFIG_FILE_PATH);
+    
     int servSocket, clntSocket;
     struct sockaddr_in serv_addr, clnt_addr;
     if((servSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
@@ -131,7 +205,7 @@ int main(int argc, char const *argv[])
             continue;
         }
 
-        printf("\nHandling client: %s",inet_ntoa(clnt_addr.sin_addr));
+        printf("\n\nHandling client: %s\n",inet_ntoa(clnt_addr.sin_addr));
 
         int ret = fork();
         if(ret == 0) {
