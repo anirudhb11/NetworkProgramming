@@ -78,7 +78,8 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes){
                     }
                 }
 
-                execv(cmd.command[subCommandIndex], cmd.argv[subCommandIndex]);
+                execvp(cmd.command[subCommandIndex], cmd.argv[subCommandIndex]);
+                perror("Failed to exec command");
 
             }
             else{
@@ -140,6 +141,7 @@ void execCommandPipeline(pipeline cmdPipeline){
 }
 
 void command_initialization( commandGroup *cmd){
+    cmd->isBackground = false;
     for(int cmd_index = 0; cmd_index < 3; cmd_index++){
         cmd->command[cmd_index] = NULL;
         for(int arg_index = 0; arg_index < 10; arg_index++){
@@ -149,7 +151,6 @@ void command_initialization( commandGroup *cmd){
         cmd->inputRedirect[cmd_index] = false;
         cmd->outputAppend[cmd_index] = false;
         cmd->outputAppend[cmd_index] = false;
-        cmd->isBackground[cmd_index] = false;
         cmd->inputFilename[cmd_index] = NULL;
         cmd->outputFilename[cmd_index] = NULL;
         cmd->next = NULL;
@@ -158,145 +159,145 @@ void command_initialization( commandGroup *cmd){
     }
 }
 
-int main(){
-    //ls ||| wc, wc, pwd | wc execution
-    pipeline p;
-    p.numberOfCommands = 3;
-
-    commandGroup c1, c2, c3;
-    command_initialization(&c1);
-    command_initialization(&c2);
-    command_initialization(&c3);
-
-    c1.command[0] = (char *)malloc(sizeof(char) *20);
-    c1.argv[0][0] = (char *)malloc(sizeof(char) * 20);
-    c1.argv[0][1] = (char *)malloc(sizeof(char) * 20);
-
-    c2.command[0] = (char *)malloc(sizeof(char) * 20);
-    c2.argv[0][0] = (char *)malloc(sizeof(char) * 20);
-
-    c2.command[1] = (char *)malloc(sizeof(char) * 20);
-    c2.argv[1][0] = (char *)malloc(sizeof(char) * 20);
-
-    c2.command[2] = (char *)malloc(sizeof(char) * 20);
-    c2.argv[2][0] = (char *)malloc(sizeof(char) * 20);
-
-    c3.command[0] = (char *)malloc(sizeof(char) *20);
-    c3.argv[0][0] = (char *)malloc(sizeof(char) *20);
-
-
-    strcpy(c1.command[0], "/bin/ls");
-    strcpy(c1.argv[0][0], "ls");
-    strcpy(c1.argv[0][1], "-l");
-
-    strcpy(c2.command[0], "/usr/bin/wc");
-    strcpy(c2.argv[0][0], "wc");
-
-    strcpy(c2.command[1], "/usr/bin/wc");
-    strcpy(c2.argv[1][0], "wc");
-
-    strcpy(c2.command[2], "/bin/pwd");
-    strcpy(c2.argv[2][0], "pwd");
-
-    strcpy(c3.command[0], "/bin/pwd");
-    strcpy(c3.argv[0][0], "pwd");
-
-    p.firstCommand = &c1;
-    c1.next = &c2;
-    c2.next = &c3;
-    c2.pipeType=3;
-
-//    execCommandPipeline(p);
-
-    //Example 2
-    //ls -l || grep ^d, grep ^-
-    pipeline p2;
-    p2.numberOfCommands = 2;
-
-    commandGroup c4, c5;
-    command_initialization(&c4);
-    command_initialization(&c5);
-    c5.pipeType = 2;
-
-    c4.command[0] = (char *)malloc(sizeof(char) *20);
-    c4.argv[0][0] = (char *)malloc(sizeof(char) * 20);
-    c4.argv[0][1] = (char *)malloc(sizeof(char) * 20);
-
-    c5.command[0] = (char *)malloc(sizeof(char) * 20);
-    c5.argv[0][0] = (char *)malloc(sizeof(char) * 20);
-    c5.argv[0][1] = (char *)malloc(sizeof(char) * 20);
-
-    c5.command[1] = (char *)malloc(sizeof(char) * 20);
-    c5.argv[1][0] = (char *)malloc(sizeof(char) * 20);
-    c5.argv[1][1] = (char *)malloc(sizeof(char) * 20);
-
-    strcpy(c4.command[0], "/bin/ls");
-    strcpy(c4.argv[0][0], "/ls");
-    strcpy(c4.argv[0][1], "-l");
-
-    strcpy(c5.command[0], "/bin/grep");
-    strcpy(c5.argv[0][0], "grep");
-    strcpy(c5.argv[0][1], "^-");
-
-    strcpy(c5.command[1], "/bin/grep");
-    strcpy(c5.argv[1][0], "grep");
-    strcpy(c5.argv[1][1], "root");
-
-    p2.firstCommand = &c4;
-    c4.next = &c5;
-//    execCommandPipeline(p2);
-
-    //Example 3
-    //wc < shell.c
-    pipeline p3;
-    p3.numberOfCommands = 1;
-
-    commandGroup c6;
-    command_initialization(&c6);
-
-    c6.inputRedirect[0] = true;
-    c6.inputFilename[0] = (char *)malloc(sizeof(char) *20);
-
-    c6.command[0] = (char *)malloc(sizeof(char) * 20);
-    c6.argv[0][0] = (char *)malloc(sizeof(char) * 20);
-
-    strcpy(c6.command[0], "/usr/bin/wc");
-    strcpy(c6.argv[0][0], "wc");
-    strcpy(c6.inputFilename[0], "shell.c");
-
-    p3.firstCommand = &c6;
+//int main(){
+//    //ls ||| wc, wc, pwd | wc execution
+//    pipeline p;
+//    p.numberOfCommands = 3;
+//
+//    commandGroup c1, c2, c3;
+//    command_initialization(&c1);
+//    command_initialization(&c2);
+//    command_initialization(&c3);
+//
+//    c1.command[0] = (char *)malloc(sizeof(char) *20);
+//    c1.argv[0][0] = (char *)malloc(sizeof(char) * 20);
+//    c1.argv[0][1] = (char *)malloc(sizeof(char) * 20);
+//
+//    c2.command[0] = (char *)malloc(sizeof(char) * 20);
+//    c2.argv[0][0] = (char *)malloc(sizeof(char) * 20);
+//
+//    c2.command[1] = (char *)malloc(sizeof(char) * 20);
+//    c2.argv[1][0] = (char *)malloc(sizeof(char) * 20);
+//
+//    c2.command[2] = (char *)malloc(sizeof(char) * 20);
+//    c2.argv[2][0] = (char *)malloc(sizeof(char) * 20);
+//
+//    c3.command[0] = (char *)malloc(sizeof(char) *20);
+//    c3.argv[0][0] = (char *)malloc(sizeof(char) *20);
+//
+//
+//    strcpy(c1.command[0], "/bin/ls");
+//    strcpy(c1.argv[0][0], "ls");
+//    strcpy(c1.argv[0][1], "-l");
+//
+//    strcpy(c2.command[0], "/usr/bin/wc");
+//    strcpy(c2.argv[0][0], "wc");
+//
+//    strcpy(c2.command[1], "/usr/bin/wc");
+//    strcpy(c2.argv[1][0], "wc");
+//
+//    strcpy(c2.command[2], "/bin/pwd");
+//    strcpy(c2.argv[2][0], "pwd");
+//
+//    strcpy(c3.command[0], "/bin/pwd");
+//    strcpy(c3.argv[0][0], "pwd");
+//
+//    p.firstCommand = &c1;
+//    c1.next = &c2;
+//    c2.next = &c3;
+//    c2.pipeType=3;
+//
+////    execCommandPipeline(p);
+//
+//    //Example 2
+//    //ls -l || grep ^d, grep ^-
+//    pipeline p2;
+//    p2.numberOfCommands = 2;
+//
+//    commandGroup c4, c5;
+//    command_initialization(&c4);
+//    command_initialization(&c5);
+//    c5.pipeType = 2;
+//
+//    c4.command[0] = (char *)malloc(sizeof(char) *20);
+//    c4.argv[0][0] = (char *)malloc(sizeof(char) * 20);
+//    c4.argv[0][1] = (char *)malloc(sizeof(char) * 20);
+//
+//    c5.command[0] = (char *)malloc(sizeof(char) * 20);
+//    c5.argv[0][0] = (char *)malloc(sizeof(char) * 20);
+//    c5.argv[0][1] = (char *)malloc(sizeof(char) * 20);
+//
+//    c5.command[1] = (char *)malloc(sizeof(char) * 20);
+//    c5.argv[1][0] = (char *)malloc(sizeof(char) * 20);
+//    c5.argv[1][1] = (char *)malloc(sizeof(char) * 20);
+//
+//    strcpy(c4.command[0], "/bin/ls");
+//    strcpy(c4.argv[0][0], "/ls");
+//    strcpy(c4.argv[0][1], "-l");
+//
+//    strcpy(c5.command[0], "/bin/grep");
+//    strcpy(c5.argv[0][0], "grep");
+//    strcpy(c5.argv[0][1], "^-");
+//
+//    strcpy(c5.command[1], "/bin/grep");
+//    strcpy(c5.argv[1][0], "grep");
+//    strcpy(c5.argv[1][1], "root");
+//
+//    p2.firstCommand = &c4;
+//    c4.next = &c5;
+////    execCommandPipeline(p2);
+//
+//    //Example 3
+//    //wc < shell.c
+//    pipeline p3;
+//    p3.numberOfCommands = 1;
+//
+//    commandGroup c6;
+//    command_initialization(&c6);
+//
+//    c6.inputRedirect[0] = true;
+//    c6.inputFilename[0] = (char *)malloc(sizeof(char) *20);
+//
+//    c6.command[0] = (char *)malloc(sizeof(char) * 20);
+//    c6.argv[0][0] = (char *)malloc(sizeof(char) * 20);
+//
+//    strcpy(c6.command[0], "wc");
+//    strcpy(c6.argv[0][0], "wc");
+//    strcpy(c6.inputFilename[0], "shell.c");
+//
+//    p3.firstCommand = &c6;
 //    execCommandPipeline(p3);
-
-    //example 4
-    //wc < shell.c
-    pipeline p4;
-    p4.numberOfCommands = 1;
-
-    commandGroup c7;
-    command_initialization(&c7);
-
-    c7.inputRedirect[0] = true;
-    c7.outputAppend[0] = true;
-    c7.inputFilename[0] = (char *)malloc(sizeof(char) *20);
-    c7.outputFilename[0] = (char *)malloc(sizeof(char) *20);
-
-    c7.command[0] = (char *)malloc(sizeof(char) * 20);
-    c7.argv[0][0] = (char *)malloc(sizeof(char) * 20);
-
-    strcpy(c7.command[0], "/usr/bin/wc");
-    strcpy(c7.argv[0][0], "wc");
-    strcpy(c7.inputFilename[0], "shell.c");
-    strcpy(c7.outputFilename[0], "abc.txt");
-
-    p4.firstCommand = &c7;
-    execCommandPipeline(p4);
-
-
-
-
-
-
-
-
-
-}
+//
+//    //example 4
+//    //wc < shell.c
+//    pipeline p4;
+//    p4.numberOfCommands = 1;
+//
+//    commandGroup c7;
+//    command_initialization(&c7);
+//
+//    c7.inputRedirect[0] = true;
+//    c7.outputAppend[0] = true;
+//    c7.inputFilename[0] = (char *)malloc(sizeof(char) *20);
+//    c7.outputFilename[0] = (char *)malloc(sizeof(char) *20);
+//
+//    c7.command[0] = (char *)malloc(sizeof(char) * 20);
+//    c7.argv[0][0] = (char *)malloc(sizeof(char) * 20);
+//
+//    strcpy(c7.command[0], "/usr/bin/wc");
+//    strcpy(c7.argv[0][0], "wc");
+//    strcpy(c7.inputFilename[0], "shell.c");
+//    strcpy(c7.outputFilename[0], "abc.txt");
+//
+//    p4.firstCommand = &c7;
+////    execCommandPipeline(p4);
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//}
