@@ -36,7 +36,7 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
     }
     int i = 1, j = 1;
 
-    //printf("New Command is %s \n" ,cmd->command[pipeNum]);
+    printf("New Command is %s \n" ,cmd->command[pipeNum]);
     
     while (tokens[i] != NULL)
     {
@@ -84,7 +84,7 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
         i++;
     }
 
-    if( search(tokens[pipeNum] , '&'))
+    if( search(tokens[cmdNum] , '&'))
         cmd->isBackground = true;
     
 }
@@ -102,7 +102,7 @@ commandGroup* multiPipe(char *inp, int left, int right, commandGroup* tail)
 {
     commandGroup *cmd = tail;
     commandGroup* tmp = getNewCommand();
-    //printf("%dP %d, %d \n", tail->pipeType, left , right);
+    printf("%dP %d, %d \n", tail->pipeType, left , right);
     char **tokens;
 
     if(!left)
@@ -122,14 +122,16 @@ commandGroup* multiPipe(char *inp, int left, int right, commandGroup* tail)
     int j = 0;
     while( tokens[j] && j < cmd->pipeType)
     {
-        //printf("%s, ", tokens[j]);
+        //printf("%s \n", tokens[j]);
         char **ttok = tokenize(trimwhitespace(tokens[j]), WHITESPACE_DELIM);
-        handleLine(ttok, tmp, j, j);
+
+
+        handleLine(ttok, tmp, j, 0);
+        //printf("%d No error \n", j);
 
         j++;
     }
-    printf("\n");
-
+    
     cmd->next = tmp;
 
     return cmd;

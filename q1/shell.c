@@ -11,14 +11,19 @@ void printCommandGrp(commandGroup* cmd)
 
     printf("ARGS : ");
     i = 0;
+    /*
+    
     for (int j = 0; j < 3; j++)
     {
         int k = 0;
         while (cmd->argv[j][k])
             printf("%d.%d %s,", j + 1, k, cmd->argv[j][k++]);
     }
-    printf("\n");
 
+
+    printf("\n");
+    */
+   
     printf("INP REDIR: ");
     i = 0;
     while (cmd->inputRedirect[i])
