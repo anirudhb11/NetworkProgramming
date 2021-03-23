@@ -64,7 +64,7 @@ void read_pending_messages(client_sync client_ds){
         pending_msg = pending_pkt.pkt.msg;
         if(!client_ds.is_auto_delete_enabled || is_deliverable(pending_msg.msg_timestamp)){
             bool is_grp = pending_msg.is_source_group;
-            printf("\n Message from: %s with ID: %d\n", (is_grp ? GROUP : PERSON), pending_msg.source_id);
+            printf("\n Message from: %s, client ID: %d\n", (is_grp ? GROUP : PERSON), pending_msg.source_id);
             printf("\n %s\n", pending_msg.msg_body);
         }
     }
@@ -86,12 +86,12 @@ void print_msg_details(message msg){
     printf("Message body %s\n", msg.msg_body);
 }
 int send_msg(client_sync client_ds){
-    packet msg_pkt;
-    message msg;
+    packet msg_pkt, reply_msg_pkt;
+    message msg, reply_msg;
     printf("1: send message to group\n");
     printf("2: send message to person\n");
     int choice;
-    printf("Enter choice: ");
+    printf("Enter choice:");
     scanf("%d", &choice);
     printf("The choice you chose: %d\n", choice);
 
@@ -125,17 +125,17 @@ int send_msg(client_sync client_ds){
 
 
 
-    if(msgrcv(client_msg_queue_id, &msg_pkt, sizeof(packet), SERVER_ACK, 0) == -1){
+    if(msgrcv(client_msg_queue_id, &reply_msg_pkt, sizeof(packet), SERVER_ACK, 0) == -1){
         perror("Error receiving ACK:\n");
         exit(0);
     }
-    msg = msg_pkt.pkt.msg;
-    printf("%s\n", msg.msg_body);
+    reply_msg = reply_msg_pkt.pkt.msg;
+    printf("%s\n", reply_msg.msg_body);
 
     return 0;
 }
 
-int create_join_group(client_sync client_ds, int req_type){
+client_sync create_join_group(client_sync client_ds, int req_type){
     printf("Enter group name: ");
     char grp_name[MAX_GRP_NAME_SZ];
     scanf("%s", grp_name);
@@ -156,22 +156,33 @@ int create_join_group(client_sync client_ds, int req_type){
 
     if(msgsnd(server_msg_queue_id, &msg_pkt, sizeof(packet), 0) == -1){
         perror("Error sending group joining request");
-        return -1;
+        return client_ds;
     }
+    printf("Going to receive from %d client id\n", client_msg_queue_id);
+
     if(msgrcv(client_msg_queue_id, &ack_msg_pkt, sizeof(packet), SERVER_ACK, 0) == -1){
         perror("Error receiving create group request ack:");
-        return -1;
+        return client_ds;
     }
     ack_msg = ack_msg_pkt.pkt.msg;
     printf("%s\n", ack_msg.msg_body);
     if(ack_msg.source_id != -1){
-        printf("Group id: %d\n", ack_msg.source_id);
         int grp_index = client_ds.num_groups;
+        if(req_type == CREATE_GRP){
+            printf("Created group with id: %d\n", ack_msg.source_id);
+
+        }
+        else{
+            printf("Joined group with id: %d\n", ack_msg.source_id);
+        }
         strcpy(client_ds.group_name[grp_index], grp_name);
         client_ds.group_id[grp_index] = ack_msg.source_id;
         client_ds.num_groups++;
+
+
+
     }
-    return 0;
+    return client_ds;
 }
 
 
@@ -211,6 +222,9 @@ void print_menu(){
 }
 
 int main(){
+    printf("Size of message is %lu\n", sizeof(message));
+    printf("Sizeof client ds: %lu\n", sizeof(client_sync));
+    printf("The size of the packet is: %lu\n", sizeof(struct packet));
     client_init();
     bool is_registered = false;
     int client_id;
@@ -239,6 +253,7 @@ int main(){
             is_registered = true;
         }
     }
+
     //Client has registered and has the structure in client_data
     int ret = fork();
     if(ret == 0){
@@ -247,21 +262,23 @@ int main(){
         }
     }
     else{
+        int user_option;
         while(1){
             print_menu();
-            printf("Enter the choice: ");
-            int choice;
-            scanf("%d", &choice);
-            switch(choice){
+            printf("Enter choice:\n");
+            scanf("%d", &user_option);
+            switch(user_option){
                 case SEND_MSG:
                     send_msg(client_data);
                     break;
                 case JOIN_GRP:
-                    create_join_group(client_data, JOIN_GRP);
+                    client_data = create_join_group(client_data, JOIN_GRP);
                     break;
                 case CREATE_GRP:
-                    create_join_group(client_data, CREATE_GRP);
+                    client_data = create_join_group(client_data, CREATE_GRP);
                     break;
+                case LIST_GRP:
+                    list_groups(client_data);
 
                 default:
                     break;

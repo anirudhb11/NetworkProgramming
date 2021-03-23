@@ -128,6 +128,7 @@ bool send_group_msg(packet msg_pkt){
             perror("Error forwarding message:");
             return false;
         }
+        printf("Server wrote to msg q %d: client id: %d\n", member_msg_queue_id, group_member_id);
         member_index++;
     }
     return true;
@@ -161,6 +162,7 @@ bool send_private_msg(packet msg_pkt){
         perror("Error forwarding message:");
         return false;
     }
+    printf("Server wrote to msg q %d client id %d\n", destination_msg_queue_id, msg_pkt.pkt.msg.destination_id);
     return true;
 
 
@@ -259,6 +261,7 @@ int create_group_handler(packet msg_pkt){
     }
     else{
         next_free_grp_id++;
+        printf("ID where I am copying: %d and group name: %s\n", next_free_grp_id, msg.msg_body);
         strcpy(group_name_table[next_free_grp_id], msg.msg_body);
         group_table[next_free_grp_id][0] = msg.source_id;
         printf("Member of group index: %d and client id %d\n", next_free_grp_id, group_table[next_free_grp_id][0]);
@@ -294,24 +297,37 @@ int join_group_handler(packet msg_pkt){
     }
     else{
         int grp_index = 1;
-        for(; grp_index <=next_free_grp_id; next_free_grp_id++){
+        for(; grp_index <=next_free_grp_id; grp_index++){
+            printf("Group name in DB: %d grp mame %s\n", grp_index, group_name_table[grp_index]);
             if(strcmp(group_name_table[grp_index], msg.msg_body) == 0){
                 break;
             }
         }
-        //group index is there
-        int member_index = 0;
-        while(group_table[grp_index][member_index] != -1){
-            member_index++;
+        reply_msg.source_id = grp_index;
+        if(is_member(msg.source_id, grp_index)){
+            strcpy(reply_msg.msg_body, "You are already a member of this group");
+            reply_msg.source_id = -1;
         }
-        group_table[grp_index][member_index] = msg.source_id;
+        //group index is there
+
+        else{
+            int member_index = 0;
+            while(group_table[grp_index][member_index] != -1){
+                member_index++;
+            }
+            group_table[grp_index][member_index] = msg.source_id;
+            strcpy(reply_msg.msg_body, "Join group request succeeded");
+        }
+
     }
     int source_queue_id = msgget(msg.source_id, 0);
     reply_pkt.pkt.msg = reply_msg;
-    if(msgsnd(source_queue_id, &reply_msg, sizeof(message), 0) == -1){
+    if(msgsnd(source_queue_id, &reply_pkt, sizeof(packet), 0) == -1){
         perror("Error sending join group reply:");
         return -1;
     }
+    printf("msg body %s\n", reply_msg.msg_body);
+    printf("Join request ACK sent to queue id %d client id %d\n", source_queue_id, msg.source_id);
     return 0;
 
 }
@@ -348,8 +364,11 @@ int main(){
 //        }
 //    }
 
+
     packet msg_pkt;
+
     while(true){
+
 
         int num_bytes_read = msgrcv(server_msg_queue_id, &msg_pkt, sizeof(msg_pkt), 0, 0);
         printf("Hi there server in next round:\n");
