@@ -28,7 +28,7 @@ int change_dir(int node, char *relativ_p, int pipe_fd){
     //Returns 0 for success, -1 o.w.
 
     if(chdir(directories[node]) < 0) {
-        printf("\nError in accessing old path. Exiting");
+        printf("\nCurrent stored directory path for node %d has been corrupted\n", node);
         return -1;
     }
     if(chdir(relativ_p) < 0) {
@@ -42,7 +42,7 @@ int change_dir(int node, char *relativ_p, int pipe_fd){
     if (getcwd(direcbuff, PATH_MAX) != NULL) {
        printf("\nNew CWD for node %d is : %s\n",node, direcbuff);
        write(pipe_fd, direcbuff, strlen(direcbuff));
-       return -1;
+       return 0; 
     } 
     else {
        perror("\ngetcwd() error");
@@ -122,11 +122,13 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
 
     char *param = strtok(cmd, " ");
 
+    int p[2];
+    pipe(p);
+
     if (!strcmp(param,"cd")) {
         int i =0;
         while(param[i] != '\0') i++;
         param += i+1;
-        change_dir(node,param,pipe_fd);
     }
     else {
         //assuming the total number of parameters cannot be greater than max length of shell command
@@ -139,10 +141,7 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
             i++;
         }
         arg_length = i-1;
-
-        int p[2];
         char *buff = (char *) malloc(BUFFER_SIZE * sizeof(char));
-        pipe(p);
         
         pid_t exec_proc = fork();
         if(exec_proc == 0) {
@@ -150,16 +149,15 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
             close(p[0]);
             close(1);
             dup(p[1]);
+            close(2);
+            dup(p[1]);
             int ch_out = chdir(directories[node]);
             if(ch_out < 0) {
                 perror("Change directory error: ");
                 exit(1);
             }
             if(execvp(args[0],args) < 0) {
-                // close(1);
-                // dup2(1);
-                printf("\nCoudn't execute command\n");
-                perror("Execution error: ");
+                perror("");
                 exit(1);
             }
         } else {
@@ -263,7 +261,6 @@ int main(int argc, char const *argv[])
                 directories[node][count_bytes] = '\0';
             printf("\nThe changed directory is: %s\n", directories[node]);
             wait(NULL);
-            printf("\nFOFO\n");
             close(direc_pipe[0]);
         }
     }
