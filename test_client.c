@@ -8,7 +8,7 @@
 #include<strings.h>
 
 #define SERV_PORT 1234
-#define SERV_ADDR "172.17.74.16"
+#define SERV_ADDR "172.17.74.15"
 #define BUFFER_SIZE 20
 
 int main(int argc, char const *argv[])

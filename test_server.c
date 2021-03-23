@@ -12,19 +12,22 @@
 #define BUFFER_SIZE 20
 #define CONFIG_FILE_PATH "./config.txt"
 #define NODE_COUNT 3
+#define HOME_DIRECTORY "/Users/ashishkumar"
 
 typedef struct Map {
     char* node;
     char* ip;
 } Map;
 
-int change_dir(char *abs_p, char *relativ_p) {
+char ** directories;
+
+int change_dir(int node, char *relativ_p, int pipe_fd){
     //given old absolute path and new relative path the function returns new
     //absolute path in the absolute path pointer.
 
     //Returns 0 for success, -1 o.w.
 
-    if(chdir(abs_p) < 0) {
+    if(chdir(directories[node]) < 0) {
         printf("\nError in accessing old path. Exiting");
         return -1;
     }
@@ -33,8 +36,12 @@ int change_dir(char *abs_p, char *relativ_p) {
         //What to do in this case ? Return the error back to requesting function.
         return -1;
     }
-    if (getcwd(abs_p, sizeof(abs_p)) != NULL) {
-       printf("\nCurrent working dir: %s\n", abs_p);
+
+    //TO BE EDITED
+    char direcbuff[PATH_MAX];
+    if (getcwd(direcbuff, PATH_MAX) != NULL) {
+       printf("\nNew CWD for node %d is : %s\n",node, direcbuff);
+       write(pipe_fd, direcbuff, strlen(direcbuff));
        return -1;
     } 
     else {
@@ -111,7 +118,7 @@ Map* file_loader(char *config_file_path) {
     return ip_map;
 }
 
-void executor(char * cmd, char * directory, int clntSocket) {
+void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
 
     char *param = strtok(cmd, " ");
 
@@ -119,7 +126,7 @@ void executor(char * cmd, char * directory, int clntSocket) {
         int i =0;
         while(param[i] != '\0') i++;
         param += i+1;
-        change_dir(directory,param);
+        change_dir(node,param,pipe_fd);
     }
     else {
         //assuming the total number of parameters cannot be greater than max length of shell command
@@ -143,7 +150,7 @@ void executor(char * cmd, char * directory, int clntSocket) {
             close(p[0]);
             close(1);
             dup(p[1]);
-            int ch_out = chdir(directory);
+            int ch_out = chdir(directories[node]);
             if(ch_out < 0) {
                 perror("Change directory error: ");
                 exit(1);
@@ -167,14 +174,30 @@ void executor(char * cmd, char * directory, int clntSocket) {
         }
 
     }
-    
+}
 
+int find_map(char *ip, Map* ip_map) {
+    for(int i=0 ; i < NODE_COUNT ; i++) {
+        if(!strcmp(ip_map[i].ip, ip)) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 int main(int argc, char const *argv[])
 {
     // Loading ips' map into the system.
     Map * ip_map = file_loader(CONFIG_FILE_PATH);
+
+    directories = (char **) malloc(NODE_COUNT * sizeof(char *));
+    for (int i = 0; i < NODE_COUNT; i++)
+    {
+        directories[i] = (char*) malloc(sizeof(char) * PATH_MAX);
+        strcpy(directories[i], HOME_DIRECTORY);
+    }
+    
+
     
     int servSocket, clntSocket;
     struct sockaddr_in serv_addr, clnt_addr;
@@ -206,6 +229,14 @@ int main(int argc, char const *argv[])
         }
 
         printf("\n\nHandling client: %s\n",inet_ntoa(clnt_addr.sin_addr));
+        int node;
+        if((node = find_map(inet_ntoa(clnt_addr.sin_addr), ip_map)) < 0) {
+            printf("\nClient not in Config File List\n");
+            exit(1);
+        }
+
+        int direc_pipe[2];
+        pipe(direc_pipe);
 
         int ret = fork();
         if(ret == 0) {
@@ -214,16 +245,26 @@ int main(int argc, char const *argv[])
             char cmd_buffer[PATH_MAX];
             char c;
             close(servSocket);
+            close(direc_pipe[0]);
             if(read(clntSocket, cmd_buffer, PATH_MAX) == 0) {
                 printf("\nProcess ended by client\n");
                 exit(0);
             }
             printf("\nThe command is: %s and serving process id is: %d\n", cmd_buffer, getpid());
-            executor(cmd_buffer,".",clntSocket);
+            executor(cmd_buffer,node,clntSocket, direc_pipe[1]);
+            sleep(3);
             exit(0);
         }
         else {
             close(clntSocket);
+            close(direc_pipe[1]);
+            int count_bytes = read(direc_pipe[0],directories[node],PATH_MAX);
+            if(count_bytes>0 && count_bytes<PATH_MAX) 
+                directories[node][count_bytes] = '\0';
+            printf("\nThe changed directory is: %s\n", directories[node]);
+            wait(NULL);
+            printf("\nFOFO\n");
+            close(direc_pipe[0]);
         }
     }
 
