@@ -27,6 +27,7 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
             cmd->outputAppend[0] = slicestring(pos + 2, l - 1, tokens[cmdNum]);
 
         cmd->command[pipeNum] = findPath(slicestring(0, pos - 1, tokens[cmdNum]));
+
         cmd->argv[pipeNum][0] = slicestring(0, pos - 1, tokens[cmdNum]);
     }
     else
@@ -85,7 +86,7 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
     }
 
     if( search(tokens[pipeNum] , '&'))
-        cmd->isBackground = true;
+        cmd->isBackground[pipeNum] = true;
     
 }
 commandGroup* noPipe(char *inp, int left, int right)
@@ -123,7 +124,8 @@ commandGroup* multiPipe(char *inp, int left, int right, commandGroup* tail)
     while( tokens[j] && j < cmd->pipeType)
     {
         //printf("%s, ", tokens[j]);
-        handleLine(tokens, tmp , j, j);
+        char** ttok = tokenize(trimwhitespace(tokens[j]), WHITESPACE_DELIM);
+        handleLine(ttok, tmp , j, j);
         j++;
     }
     printf("\n");
@@ -196,10 +198,13 @@ commandGroup* parseInput(char* inp)
     }
     
     if( left < i )
+    {
         tmp->next = noPipe(inp , left + tmp->pipeType , i - 1);
 
-    //printf("No error Here \n");
-
+        if(!head->command[0])
+            return tmp->next;
+    }
+    
     return head;
 
 }

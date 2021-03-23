@@ -11,8 +11,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <stdbool.h>
-#include <setjmp.h>
-#include <ctype.h>
 
 #define BUFFSIZE 1024
 #define CMDSIZE 128
@@ -30,7 +28,8 @@ typedef struct commandGroup {
     bool outputAppend[3];
     char *inputFilename[3];
     char *outputFilename[3];
-    bool isBackground;
+    bool isBackground[3];
+
     struct commandGroup* next;
 } commandGroup;
 
@@ -47,10 +46,3 @@ char *trimwhitespace(char *str);
 char **tokenize(char *line, char* delim);
 char *findPath(char *token0) ;
 int execCommand(commandGroup *cmd);
-
-
-bool requiresInputRedirection(commandGroup *cmd);
-bool requiresOutputRedirection(commandGroup *cmd);
-void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes);
-void execCommandPipeline(pipeline cmdPipeline);
-void command_initialization( commandGroup *cmd);

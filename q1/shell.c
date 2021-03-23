@@ -9,14 +9,18 @@ void printCommandGrp(commandGroup* cmd)
         printf("%d. %s," ,i  , (cmd->command[i++] ) );
     printf("\n");
 
-/*
     printf("ARGS : ");
-    i = 0;
-    while (cmd->argv[i])
-        printf("%d. %s ,", i + 1, cmd->argv[i++]);
+    i = 0; 
+    for(int j = 0; j < 3; j++)
+    {
+        int k = 0;
+        while(cmd->argv[j][k])
+            printf("%d.%d %s,", j + 1, k , cmd->argv[j][k++]);
+    }
+    
+
     printf("\n");
 
-*/
 
     printf("INP REDIR: ");
     i = 0;
@@ -131,20 +135,14 @@ int main(int argc, char *argv[])
         */
 
         commandGroup* cmd = parseInput(input);
-        commandGroup *cmd2 = cmd;
         
-        while(cmd2)
+        
+        while(cmd)
         {
-
-            printCommandGrp(cmd2);
-            cmd2 = cmd2->next;
+            
+            printCommandGrp(cmd);
+            cmd = cmd->next;
         }
-
-        pipeline pp;
-        pp.firstCommand = cmd;
-        pp.numberOfCommands = 1;
-
-//        execCommandPipeline(pp);
         /**/
     }
 
