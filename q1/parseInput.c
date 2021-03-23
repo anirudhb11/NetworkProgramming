@@ -85,7 +85,7 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
     }
 
     if( search(tokens[pipeNum] , '&'))
-        cmd->isBackground[pipeNum] = true;
+        cmd->isBackground = true;
     
 }
 commandGroup* noPipe(char *inp, int left, int right)

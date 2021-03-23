@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <setjmp.h>
+#include <ctype.h>
 
 #define BUFFSIZE 1024
 #define CMDSIZE 128
@@ -47,7 +48,6 @@ char **tokenize(char *line, char* delim);
 char *findPath(char *token0) ;
 int execCommand(commandGroup *cmd);
 
-commandGroup* parseInput(char** arg);
 
 bool requiresInputRedirection(commandGroup *cmd);
 bool requiresOutputRedirection(commandGroup *cmd);

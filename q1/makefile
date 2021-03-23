@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -o
 DEPS = header.h
-OBJ  =  execCommand.o shell.o  parseInput.o stringUtils.o
+OBJ  =  execCommand.o shell.o  parseInput.o stringUtils.o pipe.o
 
 all: shell
 

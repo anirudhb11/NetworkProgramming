@@ -131,14 +131,20 @@ int main(int argc, char *argv[])
         */
 
         commandGroup* cmd = parseInput(input);
+        commandGroup *cmd2 = cmd;
         
-        
-        while(cmd)
+        while(cmd2)
         {
-            
-            printCommandGrp(cmd);
-            cmd = cmd->next;
+
+            printCommandGrp(cmd2);
+            cmd2 = cmd2->next;
         }
+
+        pipeline pp;
+        pp.firstCommand = cmd;
+        pp.numberOfCommands = 1;
+
+//        execCommandPipeline(pp);
         /**/
     }
 
