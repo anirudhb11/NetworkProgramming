@@ -9,14 +9,15 @@ void printCommandGrp(commandGroup* cmd)
         printf("%d. %s," ,i  , (cmd->command[i++] ) );
     printf("\n");
 
-/*
     printf("ARGS : ");
     i = 0;
-    while (cmd->argv[i])
-        printf("%d. %s ,", i + 1, cmd->argv[i++]);
+    for (int j = 0; j < 3; j++)
+    {
+        int k = 0;
+        while (cmd->argv[j][k])
+            printf("%d.%d %s,", j + 1, k, cmd->argv[j][k++]);
+    }
     printf("\n");
-
-*/
 
     printf("INP REDIR: ");
     i = 0;

@@ -123,7 +123,9 @@ commandGroup* multiPipe(char *inp, int left, int right, commandGroup* tail)
     while( tokens[j] && j < cmd->pipeType)
     {
         //printf("%s, ", tokens[j]);
-        handleLine(tokens, tmp , j, j);
+        char **ttok = tokenize(trimwhitespace(tokens[j]), WHITESPACE_DELIM);
+        handleLine(ttok, tmp, j, j);
+
         j++;
     }
     printf("\n");
@@ -194,9 +196,14 @@ commandGroup* parseInput(char* inp)
             i++;
         }
     }
-    
-    if( left < i )
-        tmp->next = noPipe(inp , left + tmp->pipeType , i - 1);
+
+    if (left < i)
+    {
+        tmp->next = noPipe(inp, left + tmp->pipeType, i - 1);
+
+        if (!head->command[0])
+            return tmp->next;
+    }
 
     //printf("No error Here \n");
 
