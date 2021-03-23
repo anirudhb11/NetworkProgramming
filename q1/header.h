@@ -17,10 +17,11 @@
 #define MAX_ARGS 3
 #define MAX_ARGLEN 128
 #define WHITESPACE_DELIM " \t\r\n\a"
+#define COMMA_DELIM ","
 
 typedef struct commandGroup {
     char *command[3];
-    char *argv[MAX_ARGS];
+    char *argv[3][MAX_ARGS];
     int pipeType; //number of commands in a command group, (can take 1/2/3)
     bool inputRedirect[3];
     bool outputRedirect[3];
@@ -42,6 +43,6 @@ bool search(char *inp, char ch);
 int charPos(char *inp, char ch);
 char *slicestring(int left, int right, char *inp);
 char *trimwhitespace(char *str);
-char **tokenize(char *line);
-
+char **tokenize(char *line, char* delim);
+char *findPath(char *token0) ;
 int execCommand(commandGroup *cmd);

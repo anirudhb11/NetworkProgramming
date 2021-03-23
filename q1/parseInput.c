@@ -10,14 +10,12 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
     
     if (search(tokens[cmdNum], '<'))
     {
-        //printf("HI \n");
-
         int pos = charPos(tokens[cmdNum], '<');
         int l = strlen(tokens[cmdNum]);
         if (pos < l - 1)
             cmd->inputFilename[0] = slicestring(pos + 1, l - 1, tokens[cmdNum]);
-        cmd->command[pipeNum] = slicestring(0, pos - 1, tokens[cmdNum]);
-        cmd->argv[pipeNum] = slicestring(0, pos - 1, tokens[cmdNum]);
+        cmd->command[pipeNum] = findPath(slicestring(0, pos - 1, tokens[cmdNum]));
+        cmd->argv[pipeNum][0] = slicestring(0, pos - 1, tokens[cmdNum]);
     }
     else if (search(tokens[cmdNum], '>'))
     {
@@ -28,13 +26,13 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
         else if (pos + 1 < l - 1 && tokens[cmdNum][pos + 1] == '>')
             cmd->outputAppend[0] = slicestring(pos + 2, l - 1, tokens[cmdNum]);
 
-        cmd->command[pipeNum] = slicestring(0, pos - 1, tokens[cmdNum]);
-        cmd->argv[pipeNum] = slicestring(0, pos - 1, tokens[cmdNum]);
+        cmd->command[pipeNum] = findPath(slicestring(0, pos - 1, tokens[cmdNum]));
+        cmd->argv[pipeNum][0] = slicestring(0, pos - 1, tokens[cmdNum]);
     }
     else
     {
-        cmd->command[pipeNum] = tokens[cmdNum];
-        cmd->argv[pipeNum] = tokens[cmdNum];
+        cmd->command[pipeNum] = findPath(tokens[cmdNum]);
+        cmd->argv[pipeNum][0] = tokens[cmdNum];
     }
     int i = 1, j = 1;
 
@@ -43,7 +41,7 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
     while (tokens[i] != NULL)
     {
         if (tokens[i][0] == '-')
-            cmd->argv[j++] = slicestring(1, strlen(tokens[i]) - 1, tokens[i]);
+            cmd->argv[pipeNum][j++] = slicestring(1, strlen(tokens[i]) - 1, tokens[i]);
         else if (tokens[i][0] == '<')
         {
             if (strlen(tokens[i]) == 1)
@@ -95,61 +93,53 @@ commandGroup* noPipe(char *inp, int left, int right)
     commandGroup *cmd = getNewCommand();
     cmd->pipeType = 0;
 
-    /*
-    bool bg = search(inp, '&');
-    for (int i = 0; i < 3; i++)
-        cmd->isBackground[i] = bg;
-    */
-    char **tokens = tokenize(slicestring(left, right, inp));
+    char **tokens = tokenize(slicestring(left, right, inp), WHITESPACE_DELIM);
     handleLine(tokens, cmd, 0, 0);
-    //printf("Last Command is %s \n", cmd->command[0]);
-
+    
     return cmd;
 }
-commandGroup* singlePipe(char *inp, int left, int right)
+commandGroup* multiPipe(char *inp, int left, int right, commandGroup* tail)
 {
-    commandGroup* cmd = getNewCommand();
-    cmd->pipeType = 1;
-    
-    /*
-    bool bg = search(inp, '&');
-    for (int i = 0; i < 3; i++)
-        cmd->isBackground[i] = bg;
-    */
-    char** tokens = tokenize( slicestring(left , right , inp )) ;
-    handleLine(tokens, cmd, 0 , 0);
-    
-    
+    commandGroup *cmd = tail;
+    commandGroup* tmp = getNewCommand();
+    //printf("%dP %d, %d \n", tail->pipeType, left , right);
+    char **tokens;
+
+    if(!left)
+    {
+        tokens = tokenize(trimwhitespace(slicestring(left,right, inp)), WHITESPACE_DELIM);
+        handleLine(tokens, cmd , 0, 0);
+    }
+
+    int i = right + cmd->pipeType + 1;
+    while( i < strlen(inp) && inp[i] != '\0' && inp[i] != '|') i++;
+
+    char* sub = trimwhitespace(slicestring(right + cmd->pipeType + 1, i - 1, inp) );
+
+    //printf("%dP %d, %d \n", tail->pipeType, right + cmd->pipeType + 1, i - 1);
+
+    tokens = tokenize(sub , COMMA_DELIM);
+    int j = 0;
+    while( tokens[j] && j < cmd->pipeType)
+    {
+        //printf("%s, ", tokens[j]);
+        handleLine(tokens, tmp , j, j);
+        j++;
+    }
+    printf("\n");
+
+    cmd->next = tmp;
+
     return cmd;
 }
-commandGroup* doublePipe(char *inp, int left, int right)
-{
-    commandGroup *cmd = getNewCommand();
-    cmd->pipeType = 2;
-
-
-
-    return cmd;
-    
-}
-commandGroup* triplePipe(char *inp, int left, int right)
-{
-    commandGroup *cmd = getNewCommand();
-    cmd->pipeType = 1;
-
-    return cmd;
-    
-}
-
 commandGroup* parseInput(char* inp)
 {
-    
     commandGroup *head = getNewCommand();
-    commandGroup *tmp = head;
+    commandGroup *tmp = head; tmp->pipeType = 0;
     int i = 0;
     int left = 0;
     
-    while (inp[i] != '\0')
+    while (i < strlen(inp) && inp[i] != '\0')
     {
         if (inp[i] == '|')
         {
@@ -158,40 +148,59 @@ commandGroup* parseInput(char* inp)
                 if ((i + 2) < strlen(inp) && inp[i + 2] == '|')
                 {
                     //triple pipe
-                    //printf("Triple Pipe Detected \n");
-                    tmp->next = triplePipe(inp, left, i - 1);
-                    left = i + 3;
-                    i += 2;
+                    if( left ) left += 3;
                     
+                    tmp->pipeType = 3;
+                    multiPipe(inp, left, i - 1, tmp);
+                    i += 3;
+                    while (i < strlen(inp) && inp[i] != '\0' && inp[i] != '|')
+                        i++;
+                    left = i;
                 }
                 else
                 {
                     //double pipe
-                    //printf("Double Pipe Detected \n");
-                    tmp->next = doublePipe(inp, left, i - 1);
-                    left = i + 2;
-                    i += 1;
+                    if (left) left += 2; 
+                    tmp->pipeType = 2;
+                    multiPipe(inp, left, i - 1, tmp);
+                    i += 2;
+
+                    while (i < strlen(inp) && inp[i] != '\0' && inp[i] != '|')
+                        i++;
+                    left = i;
                 }
             }
             else
             {
-                //printf("Single Pipe Detected \n");
-                tmp->next = singlePipe(inp, left, i - 1);
-                left = i + 1;
-            }
+                //single pipe
+                if (left) left += 1;
+                tmp->pipeType = 1;
+                multiPipe(inp, left, i - 1, tmp);
+                i += 1;
 
+                while (i < strlen(inp) && inp[i] != '\0' && inp[i] != '|')
+                    i++;
+                left = i;
+
+
+                
+            }
             
             tmp = tmp->next;
+            
         }
-        i++;
+        else
+        {
+            i++;
+        }
     }
     
-    //printf("%d, %d \n", left , i );
+    if( left < i )
+        tmp->next = noPipe(inp , left + tmp->pipeType , i - 1);
 
-    tmp->next = noPipe(inp , left , i - 1);
+    //printf("No error Here \n");
 
-
-    return head->next;
+    return head;
 
 }
 

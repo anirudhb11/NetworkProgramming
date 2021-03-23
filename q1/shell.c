@@ -1,66 +1,52 @@
 #include "header.h"
-
-commandGroup* makeCommand()
-{
-    commandGroup* cmd =(commandGroup*) malloc(sizeof(commandGroup));
-
-
-    cmd->next = NULL;
-    cmd->command[0] = "/bin/ls"; cmd->command[1] = NULL; cmd->command[2] = NULL;
-    cmd->argv[0] = "ls";
-    cmd->next = NULL;
-
-  
-    return cmd;
-
-}
 void printCommandGrp(commandGroup* cmd)
 {
     //printf("IS BG: %d\n", cmd->isBackground);
     
     printf("COMMANDS: ");
     int i = 0;
-    while(cmd->command[i]) 
-        printf("%s ," , cmd->command[i++]);
+    while(cmd->command[i] ) 
+        printf("%d. %s," ,i  , (cmd->command[i++] ) );
     printf("\n");
 
+/*
     printf("ARGS : ");
     i = 0;
     while (cmd->argv[i])
-        printf("%s ,", cmd->argv[i++]);
+        printf("%d. %s ,", i + 1, cmd->argv[i++]);
     printf("\n");
 
-
+*/
 
     printf("INP REDIR: ");
     i = 0;
     while (cmd->inputRedirect[i])
-        printf("%d ,", cmd->inputRedirect[i++]);
+        printf("%d. %d,",i, cmd->inputRedirect[i++]);
     printf("\n");
 
     printf("INP FNAME: ");
     i = 0;
     while (cmd->inputFilename[i])
-        printf("%s ,", cmd->inputFilename[i++]);
+        printf("%d. %s,", i , cmd->inputFilename[i++]);
     printf("\n");
 
 
     printf("OUTPUT REDIR: ");
     i = 0;
     while (cmd->outputRedirect[i])
-        printf("%d ,", cmd->outputRedirect[i++]);
+        printf("%d. %d,",i , cmd->outputRedirect[i++]);
     printf("\n");
 
     printf("OUTPUT APPEND: ");
     i = 0;
     while (cmd->outputAppend[i])
-        printf("%d ,", cmd->outputAppend[i++]);
+        printf("%d. %d,", i, cmd->outputAppend[i++]);
     printf("\n");
 
     printf("OP FNAME: ");
     i = 0;
     while (cmd->outputFilename[i])
-        printf("%s ,", cmd->outputFilename[i++]);
+        printf("%d. %s ,", i , cmd->outputFilename[i++]);
     printf("\n ********************************** \n");
 
 }
@@ -97,7 +83,17 @@ int main(int argc, char *argv[])
                 break;
             }
         }
-        if( pos >= BUFFSIZE - 1) continue;
+
+        if( pos == 0 || pos >= BUFFSIZE - 1) continue;
+
+        input = trimwhitespace(input);
+        if( input[0] == 's' && input[1] == 'c'){
+            printf("Shortcut Command \n");
+            continue;
+        }
+
+        
+
 
 
         input[pos] = '\0';

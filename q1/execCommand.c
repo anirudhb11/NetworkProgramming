@@ -93,7 +93,7 @@ int execCommand(commandGroup* cmd)
                 close(fd[i][1]);
             }
 
-            execv(cmd->command[0], cmd->argv);
+            execv(cmd->command[0], cmd->argv[0]);
 
             //if execv failed
             printf("%s: failed to execute", cmd->argv[0][0]);

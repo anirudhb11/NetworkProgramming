@@ -62,7 +62,7 @@ char *trimwhitespace(char *str)
 
     return str;
 }
-char **tokenize(char *line)
+char **tokenize(char *line, char* delim)
 {
     int bufsize = 64, position = 0;
     char **tokens = malloc(bufsize * sizeof(char *));
@@ -74,7 +74,7 @@ char **tokenize(char *line)
         exit(EXIT_FAILURE);
     }
 
-    token = strtok(line, WHITESPACE_DELIM);
+    token = strtok(line, delim);
     while (token != NULL)
     {
         tokens[position] = token;
@@ -90,9 +90,45 @@ char **tokenize(char *line)
             }
         }
 
-        token = strtok(NULL, WHITESPACE_DELIM);
+        token = strtok(NULL, delim);
     }
 
     tokens[position] = NULL;
     return tokens;
+}
+char *findPath(char *token0)
+{
+    token0 = trimwhitespace(token0);
+    const char *path = getenv("PATH");
+    char *buf;
+    char buf3[400];
+    strcpy(buf3, path);
+    char *buf2 = (char *)malloc(50 * sizeof(char));
+    int i = 0;
+    int left = 0;
+    while (buf3[i] != '\0')
+    {
+        if (buf3[i] == ':')
+        {
+            buf = slicestring(left, i - 1, buf3);
+            left = i + 1;
+            strcpy(buf2, buf);
+            buf2 = strcat(buf2, "/");
+            buf2 = strcat(buf2, token0);
+            if (access(buf2, X_OK) == 0)
+            {
+                return buf2;
+            }
+        }
+        i++;
+    }
+    buf = slicestring(left, i - 1, buf3);
+    strcpy(buf2, buf);
+    buf2 = strcat(buf2, "/");
+    buf2 = strcat(buf2, token0);
+    if (access(buf2, X_OK) == 0)
+    {
+        return buf2;
+    }
+    return NULL;
 }
