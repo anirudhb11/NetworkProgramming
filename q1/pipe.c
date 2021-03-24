@@ -26,10 +26,10 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes){
         perror("Forking failed:");
     }
     else if(ret == 0){
-        char *buff = (char *)malloc(sizeof(char) * 512);
+        char *buff = (char *)malloc(sizeof(char) * 4096);
         int readBytes;
         if(readPipes != NULL){
-            readBytes = read(readPipes[0], buff, 512);
+            readBytes = read(readPipes[0], buff, 4096);
             if(readBytes < 0){
                 perror("Error reading data\n");
             }
@@ -38,7 +38,7 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes){
         }
 
         int tempPipe[2];
-        for(int subCommandIndex = 0; subCommandIndex < cmd.pipeType; subCommandIndex++){
+        for(int subCommandIndex = 0; subCommandIndex < 3 && cmd.command[subCommandIndex] != NULL; subCommandIndex++){
             pipe(tempPipe);
             int ret = fork();
             if(ret < 0){
@@ -160,6 +160,48 @@ void command_initialization( commandGroup *cmd){
 }
 
 //int main(){
+//    //ls -l | wc tc
+//    pipeline p;
+//    p.numberOfCommands = 2;
+//    commandGroup c1,c2;
+//
+//    command_initialization(&c1);
+//    command_initialization(&c2);
+//    c1.command[0] = (char *)malloc(sizeof(char) * 20);
+//    c1.argv[0][0] = (char *)malloc(sizeof(char) * 20);
+//    c1.argv[0][1] = (char *)malloc(sizeof(char) * 20);
+//
+//    c2.command[0] = (char *)malloc(sizeof(char) * 20);
+//    c2.argv[0][0] = (char *)malloc(sizeof(char) * 20);
+//
+//
+//    strcpy(c1.command[0], "/bin/ls");
+//    strcpy(c1.argv[0][0], "ls");
+//    strcpy(c1.argv[0][1], "-l");
+//
+//    strcpy(c2.argv[0][0], "wc");
+//    strcpy(c2.command[0], "/usr/bin/wc");
+//
+//    c1.next = &c2;
+//    p.firstCommand = &c1;
+//    execCommandPipeline(p);
+
+
+
+//    //ls test case
+//    pipeline p;
+//    p.numberOfCommands =1;
+//    commandGroup  c1;
+//    command_initialization(&c1);
+//    c1.command[0] = (char *)malloc(sizeof(char) * 20);
+//    c1.argv[0][0] = (char *)malloc(sizeof(char) * 20);
+//    strcpy(c1.command[0], "/bin/ls");
+//    strcpy(c1.argv[0][0], "/bin/ls");
+//    p.firstCommand = &c1;
+//
+//    execCommandPipeline(p);
+
+
 //    //ls ||| wc, wc, pwd | wc execution
 //    pipeline p;
 //    p.numberOfCommands = 3;

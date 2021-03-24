@@ -56,6 +56,16 @@ void printCommandGrp(commandGroup* cmd)
     printf("\n ********************************** \n");
 
 }
+
+int find_num_commands(commandGroup *first_command){
+    int num_commands =0;
+    while(first_command != NULL){
+        num_commands++;
+        first_command = first_command->next;
+    }
+    return num_commands;
+}
+
 int main(int argc, char *argv[])
 {
     pid_t pid;
@@ -146,12 +156,11 @@ int main(int argc, char *argv[])
             cmd2 = cmd2->next;
         }
 
-        pipeline pp;
-        pp.firstCommand = cmd;
-        pp.numberOfCommands = 1;
+        pipeline exec_pipeline;
+        exec_pipeline.firstCommand = cmd;
+        exec_pipeline.numberOfCommands = find_num_commands(cmd);
 
-//        execCommandPipeline(pp);
-        /**/
+        execCommandPipeline(exec_pipeline);
     }
 
     
