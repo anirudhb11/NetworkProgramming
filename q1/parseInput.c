@@ -41,7 +41,7 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
     while (tokens[i] != NULL)
     {
         if (tokens[i][0] == '-')
-            cmd->argv[pipeNum][j++] = slicestring(1, strlen(tokens[i]) - 1, tokens[i]);
+            cmd->argv[pipeNum][j++] = slicestring(0, strlen(tokens[i]) - 1, tokens[i]);
         else if (tokens[i][0] == '<')
         {
             if (strlen(tokens[i]) == 1)
