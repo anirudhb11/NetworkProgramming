@@ -11,7 +11,6 @@ void printCommandGrp(commandGroup* cmd)
 
     printf("ARGS : ");
     i = 0;
-    /*
     
     for (int j = 0; j < 3; j++)
     {
@@ -22,8 +21,13 @@ void printCommandGrp(commandGroup* cmd)
 
 
     printf("\n");
+
+    /*
+    
     */
+    printf("BACKGROUND PROCESS: %d \n" , cmd->isBackground);
    
+
     printf("INP REDIR: ");
     i = 0;
     while (cmd->inputRedirect[i])
@@ -54,6 +58,8 @@ void printCommandGrp(commandGroup* cmd)
     while (cmd->outputFilename[i])
         printf("%d. %s ,", i , cmd->outputFilename[i++]);
     printf("\n ********************************** \n");
+
+
 
 }
 

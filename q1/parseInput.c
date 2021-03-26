@@ -36,11 +36,11 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
     }
     int i = 1, j = 1;
 
-    printf("New Command is %s \n" ,cmd->command[pipeNum]);
+    //printf("New Command is %s \n" ,cmd->command[pipeNum]);
     
     while (tokens[i] != NULL)
     {
-        if (tokens[i][0] == '-')
+        if (tokens[i][0] == '-' || ( tokens[i][0] != '<' && tokens[i][0] != '>' && tokens[i][0] != '&' ) )
             cmd->argv[pipeNum][j++] = slicestring(0, strlen(tokens[i]) - 1, tokens[i]);
         else if (tokens[i][0] == '<')
         {
@@ -203,11 +203,15 @@ commandGroup* parseInput(char* inp)
     {
         tmp->next = noPipe(inp, left + tmp->pipeType, i - 1);
 
+        if( search(inp , '&'))
+            tmp->next->isBackground = true;
+
         if (!head->command[0])
             return tmp->next;
     }
 
-    //printf("No error Here \n");
+    if (search(inp, '&'))
+        tmp->isBackground = true;
 
     return head;
 
