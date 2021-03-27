@@ -12,6 +12,7 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/sem.h>
 
 #define CLIENT_SYNC_PASSPHRASE "client_sync"
 #define CLIENT_MQ_PASSPHRASE "client"
@@ -20,13 +21,14 @@
 
 #define CLIENT_SYNC_KEY 614
 #define SERVER_REQ_KEY 1228
+#define SEM_KEY 2456
 
 #define MAX_CLIENTS 100
 #define MAX_MEMBERS_PER_GRP 255 //Maximum members who can be in a group
 #define MAX_GROUPS 5 // Maximum groups in
 #define TIME_OUT 10 //time_out in seconds
-#define MAX_PENDING_MESSAGES 50 //Maximum pending messages that can be retrieved
-#define MAX_MSG_SIZE 70
+#define MAX_QUEUED_MESSAGES 50 // For a person who arrives late in the group he could get receive at max this many messages
+#define MAX_MSG_SIZE 100
 #define MAX_GRP_NAME_SZ 10
 #define MAX_SYN_REQ 1
 
@@ -43,7 +45,6 @@
 
 
 typedef struct client_sync{
-    bool is_auto_delete_enabled; //true if client had set auto delete option
     int client_id; // Client ID that the server provides after registering this client
     int num_groups; // Number of groups that the client is part of
     char group_name[MAX_GROUPS][MAX_GRP_NAME_SZ];
@@ -62,6 +63,7 @@ typedef struct message{
     int destination_id;
     bool is_source_group;
     char msg_body[MAX_MSG_SIZE];
+    int timeout;
     time_t msg_timestamp;
 }message;
 

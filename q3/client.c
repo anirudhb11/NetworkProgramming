@@ -2,16 +2,17 @@
 int sync_msg_id;
 key_t sync_key;
 
-
 key_t client_msg_queue_key;
 int client_msg_queue_id;
-
 
 int server_msg_queue_id;
 key_t server_msg_queue_key;
 
 int client_msg_reply_id;
 
+int sem_id;
+struct sembuf claim;
+struct sembuf release;
 #define GROUP "group"
 #define PERSON "person"
 
@@ -30,12 +31,11 @@ client_sync send_sync_message(int client_id){
         exit(0);
     }
     printf("Client sends out SYN request:\n");
-    printf("Client syn reply id: %d\n", client_msg_reply_id);
     if(msgrcv(client_msg_reply_id, &syn_packet_reply, sizeof(packet), SYN_ACK, 0) == -1){
         perror("Error receiving sync message:");
         exit(0);
     }
-    printf("Client rcvd data:\n");
+    printf("Client received SYN ACK:\n");
     return syn_packet_reply.pkt.client_data;
 }
 
@@ -53,19 +53,33 @@ bool is_deliverable(time_t msg_write_time){
 }
 
 void read_pending_messages(client_sync client_ds){
-
     packet pending_pkt;
     message pending_msg;
     while(1){
+        struct tm readable_time_stamp;
+        char buf[80];
+
         if(msgrcv(client_msg_queue_id, &pending_pkt, sizeof(packet), SEND_MSG, 0) == -1){
             perror("Error receiving message from the client Message queue:");
             exit(0);
         }
+
         pending_msg = pending_pkt.pkt.msg;
-        if(!client_ds.is_auto_delete_enabled || is_deliverable(pending_msg.msg_timestamp)){
-            bool is_grp = pending_msg.is_source_group;
-            printf("\n Message from: %s, client ID: %d\n", (is_grp ? GROUP : PERSON), pending_msg.source_id);
-            printf("\n %s\n", pending_msg.msg_body);
+
+        bool is_grp = pending_msg.is_source_group;
+        if(semop(sem_id, &claim, 1) < 0){
+            perror("Error operating on semaphore:");
+        }
+        readable_time_stamp = *localtime(&pending_msg.msg_timestamp);
+        strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", &readable_time_stamp);
+
+        printf("\n===================");
+        printf("\nMessage from: %s, client ID: %d, time: %s", (is_grp ? GROUP : PERSON), pending_msg.source_id, buf);
+        printf("\nBODY: %s\n", pending_msg.msg_body);
+        printf("\n===================\n");
+
+        if(semop(sem_id, &release, 1) < 0){
+            perror("Error operating on semaphore:");
         }
     }
 }
@@ -75,9 +89,11 @@ void list_groups(client_sync client_ds){
         printf("You are part of no groups\n");
         return;
     }
+    printf("\n===================\n");
     for(int grp_index = 0; grp_index < client_ds.num_groups; grp_index++){
         printf("Group Name: %s group index: %d\n", client_ds.group_name[grp_index], client_ds.group_id[grp_index]);
     }
+    printf("\n===================\n");
 }
 
 void print_msg_details(message msg){
@@ -88,50 +104,60 @@ void print_msg_details(message msg){
 int send_msg(client_sync client_ds){
     packet msg_pkt, reply_msg_pkt;
     message msg, reply_msg;
-    printf("1: send message to group\n");
-    printf("2: send message to person\n");
+    msg.timeout = 1e9;
+    printf("\n1: send message to group");
+    printf("\n2: send message to person");
     int choice;
-    printf("Enter choice:");
+    printf("\nEnter choice:");
     scanf("%d", &choice);
-    printf("The choice you chose: %d\n", choice);
+
 
     if(choice == 1){
         msg.is_source_group = true;
-        printf("Enter group id:\n");
+        printf("\nEnter group id:");
     }
     else if(choice == 2){
         msg.is_source_group = false;
-        printf("Enter client id:\n");
+        printf("\nEnter client id:");
     }
     else{
         printf("Invalid choice has been entered:\n");
         return -1;
     }
     scanf("%d", &msg.destination_id);
-    printf("\nEnter the message:\n");
+    printf("\nEnter the message:");
 
-    scanf("%s", msg.msg_body);
+    fflush(stdin);
+    fflush(stdout);
 
+    fgets(msg.msg_body, MAX_MSG_SIZE, stdin);
+    if(choice == 1){
+        printf("\nDo you want to enable message timeout(y/n):");
+        char c;
+        scanf("%c", &c);
+        if(c == 'y' || c == 'Y'){
+            printf("\nEnter message timeout in sec:");
+            scanf("%d", &msg.timeout);
+        }
+    }
     msg.source_id = client_ds.client_id;
     msg.msg_timestamp = time(NULL);
     msg_pkt.msg_type = SEND_MSG;
     msg_pkt.pkt.msg = msg;
 
-    print_msg_details(msg);
     if(msgsnd(server_msg_queue_id, &msg_pkt, sizeof(packet), 0) == -1){
         perror("Error sending message:\n");
         exit(0);
     }
-
-
 
     if(msgrcv(client_msg_queue_id, &reply_msg_pkt, sizeof(packet), SERVER_ACK, 0) == -1){
         perror("Error receiving ACK:\n");
         exit(0);
     }
     reply_msg = reply_msg_pkt.pkt.msg;
-    printf("%s\n", reply_msg.msg_body);
-
+    printf("\n===================\n");
+    printf("RESPONSE: %s\n", reply_msg.msg_body);
+    printf("\n===================\n");
     return 0;
 }
 
@@ -158,14 +184,15 @@ client_sync create_join_group(client_sync client_ds, int req_type){
         perror("Error sending group joining request");
         return client_ds;
     }
-    printf("Going to receive from %d client id\n", client_msg_queue_id);
+
 
     if(msgrcv(client_msg_queue_id, &ack_msg_pkt, sizeof(packet), SERVER_ACK, 0) == -1){
         perror("Error receiving create group request ack:");
         return client_ds;
     }
     ack_msg = ack_msg_pkt.pkt.msg;
-    printf("%s\n", ack_msg.msg_body);
+    printf("\n===================\n");
+    printf("RESPONSE: %s\n", ack_msg.msg_body);
     if(ack_msg.source_id != -1){
         int grp_index = client_ds.num_groups;
         if(req_type == CREATE_GRP){
@@ -178,10 +205,8 @@ client_sync create_join_group(client_sync client_ds, int req_type){
         strcpy(client_ds.group_name[grp_index], grp_name);
         client_ds.group_id[grp_index] = ack_msg.source_id;
         client_ds.num_groups++;
-
-
-
     }
+    printf("\n===================\n");
     return client_ds;
 }
 
@@ -190,13 +215,6 @@ client_sync create_join_group(client_sync client_ds, int req_type){
 
 
 void client_init(){
-//    sync_key = ftok(CLIENT_SYNC_PASSPHRASE, CLIENT_SYNC_KEY);
-//    sync_msg_id = msgget(sync_key, 0666 | IPC_CREAT);
-//    if(sync_msg_id < 0){
-//        perror("Error creating sync message queue:");
-//        exit(0);
-//    }
-
     server_msg_queue_key = ftok(SERVER_REQ_PASSPHRASE, SERVER_REQ_KEY);
     server_msg_queue_id = msgget(server_msg_queue_key, 0666 | IPC_CREAT);
 
@@ -208,8 +226,28 @@ void client_init(){
 
     client_msg_reply_id = msgget(CLIENT_SYNC_KEY, 0666);
     if(client_msg_reply_id < 0){
-        perror("Client message queue couldn't be created:\n");
+        perror("Client message queue couldn't be created:");
     }
+
+    sem_id = semget(IPC_PRIVATE, 1, 0666 | IPC_CREAT);
+    union semun arg;
+    arg.val = 1;
+    if(sem_id < 0){
+        perror("Error creating semaphore:");
+        exit(1);
+    }
+    if (semctl(sem_id, 0, SETVAL, arg) == -1)
+    {
+        perror("Error initializing semaphore:");
+        exit(1);
+    }
+    claim.sem_num = 0;
+    claim.sem_flg = 0;
+    claim.sem_op = -1;
+
+    release.sem_num = 0;
+    release.sem_flg = 0;
+    release.sem_op = 1;
 }
 
 void print_menu(){
@@ -217,14 +255,10 @@ void print_menu(){
     printf("2: Create Group:\n");
     printf("3: Join Group:\n");
     printf("4: List Groups:\n");
-    printf("5: Enable auto-delete:\n");
     printf("6: Exit\n");
 }
 
 int main(){
-    printf("Size of message is %lu\n", sizeof(message));
-    printf("Sizeof client ds: %lu\n", sizeof(client_sync));
-    printf("The size of the packet is: %lu\n", sizeof(struct packet));
     client_init();
     bool is_registered = false;
     int client_id;
@@ -238,18 +272,12 @@ int main(){
         }
         else{
             printf("You have registered with ID: %d\n", client_data.client_id);
-
             int client_id = client_data.client_id;
-            printf("Client side MQ creation: %ld\n", time(NULL));
-//            client_msg_queue_key = ftok(CLIENT_MQ_PASSPHRASE, client_id);
-//            client_msg_queue_id = msgget(client_msg_queue_id, 0666 | IPC_CREAT);
             client_msg_queue_id = msgget(client_id, 0666 | IPC_CREAT);
-            printf("Client's MQ is: %d\n", client_msg_queue_id);
             if(client_msg_queue_id < 0){
                 perror("Error creating client MQ");
                 exit(0);
             }
-//            printf("My passphrase is %s My key is %d My mq is: %d\n", CLIENT_MQ_PASSPHRASE, client_msg_queue_key, client_msg_queue_id);
             is_registered = true;
         }
     }
@@ -264,9 +292,17 @@ int main(){
     else{
         int user_option;
         while(1){
+            if(semop(sem_id, &claim, 1) < 0){
+                perror("Error operating on semaphore:");
+            }
             print_menu();
-            printf("Enter choice:\n");
+
+            printf("\nEnter choice:");
+            if(semop(sem_id, &release, 1) < 0){
+                perror("Error operating on semaphore:");
+            }
             scanf("%d", &user_option);
+
             switch(user_option){
                 case SEND_MSG:
                     send_msg(client_data);
@@ -279,21 +315,18 @@ int main(){
                     break;
                 case LIST_GRP:
                     list_groups(client_data);
+                    break;
+                case EXIT:
+                    break;
 
                 default:
                     break;
 
             }
+            if(user_option == EXIT){
+                break;
+            }
 
         }
-        kill(ret, SIGKILL);
-
     }
-
-
-
-
-
-
-
 }
