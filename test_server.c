@@ -37,7 +37,6 @@ int change_dir(int node, char *relativ_p, int pipe_fd){
         return -1;
     }
 
-    //TO BE EDITED
     char direcbuff[PATH_MAX];
     if (getcwd(direcbuff, PATH_MAX) != NULL) {
        printf("\nNew CWD for node %d is : %s\n",node, direcbuff);
@@ -51,35 +50,6 @@ int change_dir(int node, char *relativ_p, int pipe_fd){
 
     return 0;
 }
-
-// Map** fill_map(Map ** ip_map_list, char* line) {
-
-//     char *node = strtok(line, " ");
-//     char *ip = strtok(NULL, " ");
-//     char *temp = strtok(NULL, "\n");
-//     Map  *ip_map;
-
-//     if(ip_map_list == NULL) {
-//         ip_map = (Map *) malloc(sizeof(Map));
-//         ip_map->node = node;
-//         ip_map->ip = ip;
-//         ip_map->next = NULL;
-//         ip_map_list = &ip_map;
-//     } else {
-//         ip_map = *ip_map_list;
-//         while(ip_map->next != NULL) {
-//             ip_map = ip_map -> next;
-//         }
-//         Map * map = (Map *) malloc(sizeof(Map));
-//         map->node = node;
-//         map->ip = ip;
-//         map->next = NULL;
-//         ip_map->next = map;
-//     }
-
-//     return ip_map_list;
-    
-// }
 
 Map* file_loader(char *config_file_path) {
     //Assuming the ip mapping is stored in config.txt
