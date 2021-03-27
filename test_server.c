@@ -7,7 +7,7 @@
 #include<arpa/inet.h>
 #include<string.h>
 
-#define SERV_PORT 1234
+#define SERV_PORT 1235
 #define MAX_PENDING 128
 #define BUFFER_SIZE 20
 #define CONFIG_FILE_PATH "./config.txt"
@@ -19,21 +19,44 @@ typedef struct Map {
     char* ip;
 } Map;
 
+typedef struct Buffer {
+    int is_error;
+    int num_bytes;
+    char buff[BUFFER_SIZE];
+} Buffer;
+
 char ** directories;
 
-int change_dir(int node, char *relativ_p, int pipe_fd){
+int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
     //given old absolute path and new relative path the function returns new
     //absolute path in the absolute path pointer.
 
     //Returns 0 for success, -1 o.w.
+
+    int p_err[2];
+    pipe(p_err);
+    close(2);
+    dup(p_err[1]);
+    close(p_err[1]);
 
     if(chdir(directories[node]) < 0) {
         printf("\nCurrent stored directory path for node %d has been corrupted\n", node);
         return -1;
     }
     if(chdir(relativ_p) < 0) {
-        printf("\nThe change is not valid");
+        perror("\nThe change is not valid: ");
+        //printf("\nThe change is not valid");
         //What to do in this case ? Return the error back to requesting function.
+        Buffer * buff = (Buffer *) malloc(sizeof(Buffer));
+        int num_bytes;
+        while((num_bytes = read(p_err[0],buff->buff,BUFFER_SIZE)) > 0 ) {
+                        //printf("\nError:%s\n",buff->buff);
+                        buff -> is_error = 1;
+                        buff -> num_bytes = num_bytes;
+                        write(clntSocket,buff,sizeof(Buffer));
+                    }
+
+        close(p_err[0]);
         return -1;
     }
 
@@ -93,12 +116,16 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
     char *param = strtok(cmd, " ");
 
     int p[2];
+    int p_err[2];
     pipe(p);
+    pipe(p_err);
 
     if (!strcmp(param,"cd")) {
         int i =0;
         while(param[i] != '\0') i++;
         param += i+1;
+        change_dir(node, param, pipe_fd, clntSocket);
+        return;
     }
     else {
         //assuming the total number of parameters cannot be greater than max length of shell command
@@ -111,33 +138,53 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
             i++;
         }
         arg_length = i-1;
-        char *buff = (char *) malloc(BUFFER_SIZE * sizeof(char));
+        // char *buff = (char *) malloc(BUFFER_SIZE * sizeof(char));
+
+        Buffer * buff = (Buffer*) malloc(sizeof(Buffer));
         
         pid_t exec_proc = fork();
         if(exec_proc == 0) {
             //Closing read end of pipe
             close(p[0]);
+            close(p_err[0]);
             close(1);
             dup(p[1]);
             close(2);
-            dup(p[1]);
+            dup(p_err[1]);
             int ch_out = chdir(directories[node]);
             if(ch_out < 0) {
-                perror("Change directory error: ");
+                perror("\nChange directory error: ");
                 exit(1);
             }
             if(execvp(args[0],args) < 0) {
-                perror("");
+                perror("\nExecution Error: ");
                 exit(1);
             }
         } else {
-            //Closing write end of pipe.
+            //Closing write end of pipes.
             close(p[1]);
-            int num_bytes;
-            while((num_bytes = read(p[0],buff,BUFFER_SIZE)) > 0 ) {
-                write(clntSocket,buff,num_bytes);
+            close(p_err[1]);
+            int stat, num_bytes;
+            wait(&stat);
+            printf("\nStat is: %d\n",stat);
+            if(WIFEXITED(stat)) {
+                if(WEXITSTATUS(stat) > 0) {
+                    while((num_bytes = read(p_err[0],buff->buff,BUFFER_SIZE)) > 0 ) {
+                        //printf("\nError:%s\n",buff->buff);
+                        buff -> is_error = 1;
+                        buff -> num_bytes = num_bytes;
+                        write(clntSocket,buff,sizeof(Buffer));
+                    }
+                }
+                else {
+                    while((num_bytes = read(p[0],buff->buff,BUFFER_SIZE)) > 0 ) {
+                        //printf("\nNormal:%s\n",buff->buff);
+                        buff -> is_error = 0;
+                        buff -> num_bytes = num_bytes;
+                        write(clntSocket,buff,sizeof(Buffer));
+                    }
+                }
             }
-            wait(NULL);
             return;
         }
 
@@ -220,7 +267,6 @@ int main(int argc, char const *argv[])
             }
             printf("\nThe command is: %s and serving process id is: %d\n", cmd_buffer, getpid());
             executor(cmd_buffer,node,clntSocket, direc_pipe[1]);
-            sleep(3);
             exit(0);
         }
         else {
