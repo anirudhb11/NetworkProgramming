@@ -35,6 +35,10 @@ int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
 
     int p_err[2];
     pipe(p_err);
+    int temp;
+
+    // printf("\nThe PID is: %d\n", getpid());
+    // printf("\nThe write end is: %d and read end is: %d\n",p_err[1], p_err[0]);
     close(2);
     dup(p_err[1]);
     close(p_err[1]);
@@ -45,6 +49,8 @@ int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
     }
     if(chdir(relativ_p) < 0) {
         perror("\nThe change is not valid: ");
+        // printf("The value is: %d", p_err[1]);
+        close(2);
         //printf("\nThe change is not valid");
         //What to do in this case ? Return the error back to requesting function.
         Buffer * buff = (Buffer *) malloc(sizeof(Buffer));
@@ -54,8 +60,10 @@ int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
                         buff -> is_error = 1;
                         buff -> num_bytes = num_bytes;
                         write(clntSocket,buff,sizeof(Buffer));
+                        printf("\nStat2: %s\n", buff->buff);
                     }
-
+        
+        // printf("dsdfdsf\n");
         close(p_err[0]);
         return -1;
     }
@@ -115,11 +123,6 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
 
     char *param = strtok(cmd, " ");
 
-    int p[2];
-    int p_err[2];
-    pipe(p);
-    pipe(p_err);
-
     if (!strcmp(param,"cd")) {
         int i =0;
         while(param[i] != '\0') i++;
@@ -130,6 +133,10 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
     else {
         //assuming the total number of parameters cannot be greater than max length of shell command
         char **args = (char **) calloc(PATH_MAX, sizeof(char *));
+        int p[2];
+        int p_err[2];
+        pipe(p);
+        pipe(p_err);
         args[0] = param;
         int arg_length = 0, i =1;
         while(param != NULL) {
@@ -252,6 +259,8 @@ int main(int argc, char const *argv[])
 
         int direc_pipe[2];
         pipe(direc_pipe);
+
+        // printf("\nThe direc pipe write end is: %d and read end is %d\n", direc_pipe[1], direc_pipe[0]);
 
         int ret = fork();
         if(ret == 0) {

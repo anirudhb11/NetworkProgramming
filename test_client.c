@@ -8,7 +8,7 @@
 #include<strings.h>
 
 #define SERV_PORT 1235
-#define SERV_ADDR "172.17.74.15"
+#define SERV_ADDR "172.20.10.2"
 #define BUFFER_SIZE 20
 
 typedef struct Buffer {
@@ -16,6 +16,15 @@ typedef struct Buffer {
     int num_bytes;
     char buff[BUFFER_SIZE];
 } Buffer;
+
+// char** parser(char* cmd) {
+//     char *param = strtok(cmd, "|");
+//     while()
+// }
+
+// void executor(char *cmd) {
+
+// }
 
 int main(int argc, char const *argv[])
 {
@@ -49,6 +58,7 @@ int main(int argc, char const *argv[])
         char cmd[PATH_MAX];
 
         gets(cmd);
+        // void executor(cmd);
         if(strcmp(cmd,"exit") == 0) {
             close(clntSocket);
             exit(0);
