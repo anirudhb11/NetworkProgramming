@@ -1,21 +1,4 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<unistd.h>
-
-#include<limits.h>
-#include<arpa/inet.h>
-#include<sys/socket.h>
-#include<strings.h>
-
-#define SERV_PORT 1235
-#define SERV_ADDR "172.20.10.2"
-#define BUFFER_SIZE 20
-
-typedef struct Buffer {
-    int is_error;
-    int num_bytes;
-    char buff[BUFFER_SIZE];
-} Buffer;
+#include "header.h"
 
 // char** parser(char* cmd) {
 //     char *param = strtok(cmd, "|");
@@ -28,6 +11,9 @@ typedef struct Buffer {
 
 int main(int argc, char const *argv[])
 {
+
+    Map * ip_map = file_loader(CONFIG_FILE_PATH);
+
     struct sockaddr_in serv_addr;
 
     // char *buff = (char *) malloc(BUFFER_SIZE * sizeof(char));

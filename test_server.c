@@ -1,29 +1,4 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<unistd.h>
-
-#include<limits.h>
-#include<sys/socket.h>
-#include<arpa/inet.h>
-#include<string.h>
-
-#define SERV_PORT 1235
-#define MAX_PENDING 128
-#define BUFFER_SIZE 20
-#define CONFIG_FILE_PATH "./config.txt"
-#define NODE_COUNT 3
-#define HOME_DIRECTORY "/Users/ashishkumar"
-
-typedef struct Map {
-    char* node;
-    char* ip;
-} Map;
-
-typedef struct Buffer {
-    int is_error;
-    int num_bytes;
-    char buff[BUFFER_SIZE];
-} Buffer;
+#include "header.h"
 
 char ** directories;
 
@@ -80,43 +55,6 @@ int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
     }
 
     return 0;
-}
-
-Map* file_loader(char *config_file_path) {
-    //Assuming the ip mapping is stored in config.txt
-    FILE * fp;
-    char * line = NULL;
-    size_t len = 0;
-    ssize_t read;
-
-    Map * ip_map = (Map *) malloc(NODE_COUNT * sizeof(Map));
-
-    fp = fopen(config_file_path, "r");
-    if(fp == NULL) {
-        printf("\nConfig file loading error\n");
-        exit(1);
-    }
-
-    int count = 0;
-
-    while ((read = getline(&line,&len, fp)) != -1)
-    {
-        if(count >= NODE_COUNT) {
-            printf("\nBad config file. More IPs than configuration\n");
-            exit(1);
-        }
-        char * temp = (char *) malloc(sizeof(char) * len);
-        strcpy(temp,line);
-        char *node = strtok(temp, " \n");
-        char *ip = strtok(NULL, " \n");
-        ip_map[count].node = node;
-        ip_map[count].ip = ip;
-
-        count++;
-    }
-
-    fclose(fp);
-    return ip_map;
 }
 
 void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
@@ -196,15 +134,6 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
         }
 
     }
-}
-
-int find_map(char *ip, Map* ip_map) {
-    for(int i=0 ; i < NODE_COUNT ; i++) {
-        if(!strcmp(ip_map[i].ip, ip)) {
-            return i;
-        }
-    }
-    return -1;
 }
 
 int main(int argc, char const *argv[])
