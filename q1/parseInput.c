@@ -102,7 +102,7 @@ commandGroup* multiPipe(char *inp, int left, int right, commandGroup* tail)
 {
     commandGroup *cmd = tail;
     commandGroup* tmp = getNewCommand();
-    printf("%dP %d, %d \n", tail->pipeType, left , right);
+    //printf("%dP %d, %d \n", tail->pipeType, left , right);
     char **tokens;
 
     if(!left)

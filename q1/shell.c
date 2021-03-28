@@ -1,4 +1,6 @@
 #include "header.h"
+commandGroup** scTable;
+
 void printCommandGrp(commandGroup* cmd)
 {
     //printf("IS BG: %d\n", cmd->isBackground);
@@ -71,19 +73,50 @@ int find_num_commands(commandGroup *first_command){
     }
     return num_commands;
 }
+void shortCutHandler()
+{
+    printf("\nEntered short cut mode\n");
+    int scNumber;
+    scanf("%d", &scNumber);
+    if (scTable[scNumber] == NULL)
+    {
+        printf("No entry exists for index. %d \n", scNumber);
+        //exit(0);
+        return;
+    }
+    if (scNumber < 0 || scNumber > 999)
+    {
 
+        printf("%d: Input Number limit exceeded.\n", scNumber);
+        //exit(0);
+        return;
+    }
+
+    /*
+    printf("SC:%d Executing \n", scNumber);
+    int isBackground = scTable[scNumber]->isBackground;
+    int pid = fork();
+    pipeline exec_pipeline;
+    exec_pipeline.firstCommand = scTable[scNumber];
+    exec_pipeline.numberOfCommands = find_num_commands(scTable[scNumber]);
+
+    execCommandPipeline(exec_pipeline);
+    */
+
+}
 int main(int argc, char *argv[])
 {
     pid_t pid;
-    /*
-    signal(SIGINT, sig_handler);
+    
+    signal(SIGINT, shortCutHandler);
     signal(SIGTTOU, SIG_IGN);
-    */
-
+    
+    
     pid = tcgetpgrp(STDOUT_FILENO);
 
     setpgid(getpid(), 0);
     tcsetpgrp(STDOUT_FILENO, getpid());
+    commandGroup* scLookup[1000]; int lastSC = 0; scTable = scLookup;
 
     int a = 1;
     while (a)
@@ -107,50 +140,33 @@ int main(int argc, char *argv[])
         }
 
         if( pos == 0 || pos >= BUFFSIZE - 1) continue;
-
-        input = trimwhitespace(input);
-        if( input[0] == 's' && input[1] == 'c'){
-            printf("Shortcut Command \n");
-            continue;
-        }
-
-        
-
-
-
         input[pos] = '\0';
 
-        /*
-        int i = 0;
-        char **aarg = malloc(sizeof(char) * BUFFSIZE);
-        const char *space = " ";
-        char *arg = strtok(input, space);
-
-        
-        while (arg != NULL)
-        {
-            aarg[i] = arg;
-            i++;
-            arg = strtok(NULL, space);
+        input = trimwhitespace(input);
+        char tmp[BUFFSIZE]; strcpy(tmp , input);
+        int inpLen = strlen(input);
+        if( input[0] == 's' && input[1] == 'c'){
+            //printf("Shortcut Command \n");
+            char **tokens = tokenize(input, WHITESPACE_DELIM);
+            int j = 1;
+            if( tokens[j][0] == '-' && tokens[j][1] == 'i')
+            {
+                printf("%s \n", tokens[j + 1]);
+                int num = atoi(tokens[j + 1]);
+                int len = strlen(tokens[j + 1]) + 7;
+                char* str = slicestring(len, inpLen , tmp);
+                printf("%s is stored in %d \n", str, num);
+                scLookup[num] = parseInput(str);
+            }
+            else if (tokens[j][0] == '-' && tokens[j][1] == 'd')
+            {
+                int num = atoi(tokens[j + 1]);
+                printf("%s stored in %d is Deleted\n", scLookup[num]->command[0], num);
+                scLookup[num] = NULL;
+            }
+            continue;
         }
-        aarg[i] = NULL;
-        /*
-
-        int j = 0;
-        while( aarg[j] != NULL)
-        {
-            printf("%s \n" , aarg[j]);
-            j++;
-        }
-        
-        
-        
-        
-
-        commandGroup* cmd = parseInput(aarg);
-        a = execCommand(cmd);
-        
-        */
+        if( !input) continue;
 
         commandGroup* cmd = parseInput(input);
         commandGroup *cmd2 = cmd;
