@@ -13,13 +13,17 @@
 #include <stdbool.h>
 #include <setjmp.h>
 #include <ctype.h>
-
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <assert.h>
 #define BUFFSIZE 1024
 #define CMDSIZE 128
 #define MAX_ARGS 3
 #define MAX_ARGLEN 128
 #define WHITESPACE_DELIM " \t\r\n\a"
 #define COMMA_DELIM ","
+#define SHM_KEY 636
+#define MAX_SHORTCUTS 1000
 
 typedef struct commandGroup {
     char *command[3];
@@ -47,10 +51,16 @@ char *trimwhitespace(char *str);
 char **tokenize(char *line, char* delim);
 char *findPath(char *token0) ;
 int execCommand(commandGroup *cmd);
+void shortCutHandler(int sig);
+int callExecutor(pipeline exec_pipeline, char *cwd, commandGroup *lastCmd);
+commandGroup *getLastCommandGroup(commandGroup *head);
+int find_num_commands(commandGroup *first_command);
+void sigHandler(int sig);
+void printCommandGrp(commandGroup* cmd);
 
 
 bool requiresInputRedirection(commandGroup *cmd);
 bool requiresOutputRedirection(commandGroup *cmd);
-void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes);
-void execCommandPipeline(pipeline cmdPipeline);
+void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes, char *cwd);
+void execCommandPipeline(pipeline cmdPipeline, char *cwd);
 void command_initialization( commandGroup *cmd);

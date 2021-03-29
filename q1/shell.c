@@ -1,5 +1,14 @@
 #include "header.h"
-commandGroup** scTable;
+
+commandGroup* scTable[MAX_SHORTCUTS];
+
+char *cwd;
+
+
+pid_t driver_process_pid;
+jmp_buf buffA;
+
+int sig_int_handler_pipe[2];
 
 void printCommandGrp(commandGroup* cmd)
 {
@@ -61,9 +70,23 @@ void printCommandGrp(commandGroup* cmd)
         printf("%d. %s ,", i , cmd->outputFilename[i++]);
     printf("\n ********************************** \n");
 
+}
 
+
+
+
+void sigHandler(int sig){
+    if(getpid() == tcgetpgrp(STDIN_FILENO)){
+        tcsetpgrp(STDIN_FILENO, driver_process_pid);
+        kill(SIGUSR1, driver_process_pid);
+        exit(0);
+    }
+    else{
+        exit(0);
+    }
 
 }
+
 
 int find_num_commands(commandGroup *first_command){
     int num_commands =0;
@@ -73,7 +96,68 @@ int find_num_commands(commandGroup *first_command){
     }
     return num_commands;
 }
-void shortCutHandler()
+
+commandGroup *getLastCommandGroup(commandGroup *head){
+    while(head->next != NULL){
+        head = head->next;
+    }
+    return head;
+}
+
+
+int callExecutor(pipeline exec_pipeline, char *cwd, commandGroup *lastCmd){
+    int sync_pipe[2]; //synchronisation between driver shell process and shell process
+    pipe(sync_pipe);
+
+    char sync_char;
+    int child_pid = fork();
+    if(child_pid < 0){
+        perror("Error while forking:");
+    }
+    else if(child_pid == 0){
+        signal(SIGINT, sigHandler);
+        signal(SIGQUIT, sigHandler);
+
+        close(sync_pipe[1]);
+        read(sync_pipe[0], &sync_char, 1);
+//            printf("Executor PID : %d PGID %d\n", getpid(), getpgid(getpid()));
+        execCommandPipeline(exec_pipeline, cwd);
+        if(!lastCmd->isBackground){
+//            printf("Returning control:\n");
+            tcsetpgrp(STDIN_FILENO, driver_process_pid);
+        }
+        return -1;
+
+    }
+    else{
+
+        close(sync_pipe[0]);
+        setpgid(child_pid, child_pid);
+        if(!lastCmd->isBackground){
+            tcsetpgrp(STDIN_FILENO, child_pid);
+        }
+
+        write(sync_pipe[1], "a", 1);
+        close(sync_pipe[1]);
+        int status;
+
+        if(lastCmd->isBackground){
+            int child_waiter = fork();
+            if(child_waiter == 0) {
+                waitpid(child_pid, &status, 0);
+                return -1;
+            }
+        }
+        else{
+            printf("Going to wait for pID: %d\n", child_pid);
+            waitpid(child_pid, &status, 0);
+            printf("Process terminated with status %d\n", status);
+        }
+    }
+
+
+}
+void shortCutHandler(int sig)
 {
     printf("\nEntered short cut mode\n");
     int scNumber;
@@ -81,49 +165,55 @@ void shortCutHandler()
     if (scTable[scNumber] == NULL)
     {
         printf("No entry exists for index. %d \n", scNumber);
-        //exit(0);
-        return;
+        longjmp(buffA, 1);
     }
     if (scNumber < 0 || scNumber > 999)
     {
 
         printf("%d: Input Number limit exceeded.\n", scNumber);
-        //exit(0);
-        return;
+        longjmp(buffA, 1);
     }
 
-    /*
+
     printf("SC:%d Executing \n", scNumber);
-    int isBackground = scTable[scNumber]->isBackground;
-    int pid = fork();
     pipeline exec_pipeline;
     exec_pipeline.firstCommand = scTable[scNumber];
     exec_pipeline.numberOfCommands = find_num_commands(scTable[scNumber]);
-
-    execCommandPipeline(exec_pipeline);
-    */
-
+    commandGroup *lastCommand = getLastCommandGroup(scTable[scNumber]);
+    callExecutor(exec_pipeline, cwd, lastCommand);
+    longjmp(buffA, 1);
 }
+
+
+
 int main(int argc, char *argv[])
 {
-    pid_t pid;
-    
     signal(SIGINT, shortCutHandler);
-    signal(SIGTTOU, SIG_IGN);
-    
-    
-    pid = tcgetpgrp(STDOUT_FILENO);
+    for(int pos =0; pos < MAX_SHORTCUTS; pos++){
+        scTable[pos] = NULL;
+    }
 
-    setpgid(getpid(), 0);
-    tcsetpgrp(STDOUT_FILENO, getpid());
-    commandGroup* scLookup[1000]; int lastSC = 0; scTable = scLookup;
+    int shm_id = shmget(SHM_KEY, 1024, 0666|IPC_CREAT);
+    cwd = (char*) shmat(shm_id,(void*)0,0);
+    getcwd(cwd, 1024);
+
+
+    printf("Current working directory: %s\n", cwd);
+    driver_process_pid = getpid();
+    printf("Driver PID: %d\n", driver_process_pid);
 
     int a = 1;
-    while (a)
+
+    a = setjmp(buffA);
+    while (1)
     {
+
+        waitpid(-1, NULL, WNOHANG);
+
         char cur_dir[1024];
         getcwd(cur_dir, sizeof(cur_dir));
-        printf("$shell:>");
+        printf("\n$shell:>");
+        fflush(stdout);
 
         char *input = malloc(sizeof(char) * BUFFSIZE);
         int pos = 0;
@@ -156,35 +246,32 @@ int main(int argc, char *argv[])
                 int len = strlen(tokens[j + 1]) + 7;
                 char* str = slicestring(len, inpLen , tmp);
                 printf("%s is stored in %d \n", str, num);
-                scLookup[num] = parseInput(str);
+                scTable[num] = parseInput(str);
             }
             else if (tokens[j][0] == '-' && tokens[j][1] == 'd')
             {
                 int num = atoi(tokens[j + 1]);
-                printf("%s stored in %d is Deleted\n", scLookup[num]->command[0], num);
-                scLookup[num] = NULL;
+                printf("%s stored in %d is Deleted\n", scTable[num]->command[0], num);
+                scTable[num] = NULL;
             }
             continue;
         }
         if( !input) continue;
 
         commandGroup* cmd = parseInput(input);
-        commandGroup *cmd2 = cmd;
-        
-        while(cmd2)
-        {
-
-            printCommandGrp(cmd2);
-            cmd2 = cmd2->next;
-        }
 
         pipeline exec_pipeline;
         exec_pipeline.firstCommand = cmd;
         exec_pipeline.numberOfCommands = find_num_commands(cmd);
+        commandGroup *lastCommand = getLastCommandGroup(cmd);
+        chdir(cwd);
 
-        execCommandPipeline(exec_pipeline);
+        int ret = callExecutor(exec_pipeline, cwd, lastCommand);
+        if(ret == -1){
+            break;
+        }
     }
 
     
-    return 1;
+    return 0;
 }

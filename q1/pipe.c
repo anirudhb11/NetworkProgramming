@@ -3,6 +3,34 @@
 //output redirection only in the end
 //In between pipe you will read and write to pipe
 
+void printProcessDetails(commandGroup cmd, int subCommandIndex, int rfd, int wfd){
+    int devNull = open("/dev/null", O_WRONLY);
+    if(cmd.isBackground){
+        close(1);
+        dup(devNull);
+    }
+    printf("\n=======Process Details========");
+    printf("\nCommand executable path: %s", cmd.command[subCommandIndex]);
+    printf("\nPID for this command: %d", getpid());
+
+    //STDIN
+    if(cmd.inputRedirect[subCommandIndex] == true){
+        printf("\nSTDIN redirect to file name: %s, file fd: %d", cmd.inputFilename[subCommandIndex],rfd);
+    }
+    else{
+        printf("\nSTDIN redirect to temporary pipe, fd: %d",rfd);
+    }
+    //STDOUT
+    if(cmd.outputAppend[subCommandIndex] || cmd.outputRedirect[subCommandIndex]){
+        printf("\nSTDOUT redirect to file %s with fd: %d", cmd.outputFilename[subCommandIndex], wfd);
+    }
+    else if(wfd != 1){
+        printf("\nSTDOUT redirected to fd: %d", wfd);
+    }
+    printf("\n==============================\n");
+}
+
+
 /**
  * @return true if any of the commands part of the command group requires input redirection
 */
@@ -20,7 +48,8 @@ bool requiresOutputRedirection(commandGroup *cmd){
 /**
  * Executes one command of the pipeline
  */
-void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes){
+void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes, char *cwd){
+
     int ret = fork();
     if(ret == -1){
         perror("Forking failed:");
@@ -34,7 +63,7 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes){
                 perror("Error reading data\n");
             }
             buff[readBytes] = '\0';
-//            printf("READ %s\n", buff);
+
         }
 
         int tempPipe[2];
@@ -45,50 +74,85 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes){
                 perror("Forking failed while executing subcommand:");
             }
             if(ret == 0){
+                int rfd = 0, wfd = 1;
+
                 if(close(tempPipe[1]) < 0){
-                    printf("Couldn't close temporary pipe\n");
+                    perror("Couldn't close temporary pipe\n");
                 }
                 if(cmd.inputRedirect[subCommandIndex] == true){
                     int fd = open(cmd.inputFilename[subCommandIndex], O_RDONLY);
                     if(fd < 0){
                         perror("Failed to open file to read:");
                     }
+                    rfd = fd;
                     dup2(fd, STDIN_FILENO);
                 }
                 else{
+                    rfd = tempPipe[0];
                     dup2(tempPipe[0], STDIN_FILENO);
                 }
 
-                if(subCommandIndex == cmd.pipeType - 1){ //Last command of the group, it's output must be written to writePipes
+                if(subCommandIndex == 2 || (cmd.command[subCommandIndex + 1] == NULL)){ //Last command of the group, it's output must be written to writePipes
                     if(cmd.outputRedirect[subCommandIndex] == true || cmd.outputAppend[subCommandIndex] == true){
+
+                        printf("op redirect mode: %d\n",cmd.outputRedirect[subCommandIndex]);
+                        printf("op append mode: %d\n", cmd.outputAppend[subCommandIndex]);
                         int fd;
                         if(cmd.outputRedirect[subCommandIndex] == true) // Redirect mode >
-                            fd = open(cmd.outputFilename[subCommandIndex], O_CREAT | O_WRONLY);
+                            fd = open(cmd.outputFilename[subCommandIndex],  O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
                         else // Append mode >>
-                            fd = open(cmd.outputFilename[subCommandIndex], O_CREAT | O_WRONLY | O_APPEND);
+                            fd = open(cmd.outputFilename[subCommandIndex], O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
 
                         if(fd < 0){
                             perror("Failed to open file to write:");
+                            printf("Err no: %d\n",errno);
                         }
+                        wfd = fd;
+                        printProcessDetails(cmd, subCommandIndex, rfd, wfd);
                         dup2(fd, STDOUT_FILENO);
 
                     }
                     else if(writePipes != NULL){
+                        wfd = writePipes[1];
+                        printProcessDetails(cmd, subCommandIndex, rfd, wfd);
                         dup2(writePipes[1], STDOUT_FILENO);
                     }
+                    else{
+                        printProcessDetails(cmd, subCommandIndex, rfd, wfd);
+                    }
+
                 }
 
-                execvp(cmd.command[subCommandIndex], cmd.argv[subCommandIndex]);
-                perror("Failed to exec command");
+
+                if(strcpy(cmd.argv[subCommandIndex][0], "cd") == 0){
+                    break;
+                }
+                else{
+
+                    execvp(cmd.command[subCommandIndex], cmd.argv[subCommandIndex]);
+                    perror("Failed to exec command");
+                }
+
 
             }
             else{
                 //Read data from prev pipe and then write it into this pipe
+//                printf("Parent process: execute stuff: %d PGID %d \n", getpid(), getpgid(getpid()));
 
                 close(tempPipe[0]);
                 write(tempPipe[1], buff, readBytes);
+
                 close(tempPipe[1]);
                 wait(NULL);
+
+                if(strcmp(cmd.argv[subCommandIndex][0], "cd") == 0){
+//                    printf("[BEFORE] State of working directory is: %s\n", cwd);
+                    if(chdir(cmd.argv[subCommandIndex][1]) == -1){
+                        perror("Error changing directory:");
+                    }
+                    getcwd(cwd, 1024);
+                }
+
 
             }
         }
@@ -96,6 +160,7 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes){
 
     }
     else{
+
         wait(NULL);
     }
 
@@ -105,7 +170,7 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes){
 /**
  * Executes the entire command pipeline
  */
-void execCommandPipeline(pipeline cmdPipeline){
+void execCommandPipeline(pipeline cmdPipeline, char *cwd){
     int numCommands = cmdPipeline.numberOfCommands;
     int pipes[numCommands - 1][2];  //for n commands we need n - 1 pipes
 
@@ -133,7 +198,14 @@ void execCommandPipeline(pipeline cmdPipeline){
         if(cmdIndex < numCommands - 1){
             writePipeFd = pipes[cmdIndex];
         }
-        executeCommandGroup(*cmd, readPipeFd, writePipeFd);
+        if(readPipeFd != NULL){
+            printf("\nRead pipe fds for command index %d -> %d, %d\n",  cmdIndex + 1, readPipeFd[0], readPipeFd[1]);
+        }
+        if(writePipeFd != NULL){
+            printf("\nWrite pipe fds for command index %d -> %d, %d\n",  cmdIndex + 1, writePipeFd[0], writePipeFd[1]);
+        }
+        fflush(stdout);
+        executeCommandGroup(*cmd, readPipeFd, writePipeFd, cwd);
 //        printf("Executed command %s\n", cmd->argv[0][0]);
         cmd = cmd->next;
         cmdIndex++;
@@ -251,8 +323,8 @@ void command_initialization( commandGroup *cmd){
 //
 ////    execCommandPipeline(p);
 //
-//    //Example 2
-//    //ls -l || grep ^d, grep ^-
+    //Example 2
+    //ls -l || grep ^d, grep ^-
 //    pipeline p2;
 //    p2.numberOfCommands = 2;
 //
@@ -284,10 +356,12 @@ void command_initialization( commandGroup *cmd){
 //    strcpy(c5.command[1], "/bin/grep");
 //    strcpy(c5.argv[1][0], "grep");
 //    strcpy(c5.argv[1][1], "root");
+//    char *cwd = (char *)malloc(sizeof(char) * 1024);
+//    getcwd(cwd, 1024);
 //
 //    p2.firstCommand = &c4;
 //    c4.next = &c5;
-////    execCommandPipeline(p2);
+//    execCommandPipeline(p2, cwd);
 //
 //    //Example 3
 //    //wc < shell.c
