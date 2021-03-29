@@ -28,15 +28,19 @@ int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
         close(2);
         //printf("\nThe change is not valid");
         //What to do in this case ? Return the error back to requesting function.
-        Buffer * buff = (Buffer *) malloc(sizeof(Buffer));
+        Output_Buffer * buff = (Output_Buffer *) malloc(sizeof(Output_Buffer));
         int num_bytes;
         while((num_bytes = read(p_err[0],buff->buff,BUFFER_SIZE)) > 0 ) {
                         //printf("\nError:%s\n",buff->buff);
                         buff -> is_error = 1;
                         buff -> num_bytes = num_bytes;
-                        write(clntSocket,buff,sizeof(Buffer));
+                        buff -> end_packet = 0;
+                        write(clntSocket,buff,sizeof(Output_Buffer));
                         printf("\nStat2: %s\n", buff->buff);
                     }
+        buff->end_packet = 1;
+        buff->num_bytes= 0;
+        write(clntSocket,buff,sizeof(Output_Buffer));
         
         // printf("dsdfdsf\n");
         close(p_err[0]);
@@ -85,7 +89,7 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
         arg_length = i-1;
         // char *buff = (char *) malloc(BUFFER_SIZE * sizeof(char));
 
-        Buffer * buff = (Buffer*) malloc(sizeof(Buffer));
+        Output_Buffer * buff = (Output_Buffer*) malloc(sizeof(Output_Buffer));
         
         pid_t exec_proc = fork();
         if(exec_proc == 0) {
@@ -118,17 +122,24 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
                         //printf("\nError:%s\n",buff->buff);
                         buff -> is_error = 1;
                         buff -> num_bytes = num_bytes;
-                        write(clntSocket,buff,sizeof(Buffer));
+                        buff -> end_packet = 0;
+                        write(clntSocket,buff,sizeof(Output_Buffer));
                     }
+
                 }
                 else {
                     while((num_bytes = read(p[0],buff->buff,BUFFER_SIZE)) > 0 ) {
                         //printf("\nNormal:%s\n",buff->buff);
                         buff -> is_error = 0;
                         buff -> num_bytes = num_bytes;
-                        write(clntSocket,buff,sizeof(Buffer));
+                        buff -> end_packet = 0;
+                        write(clntSocket,buff,sizeof(Output_Buffer));
                     }
                 }
+
+                buff->end_packet = 1;
+                buff->num_bytes= 0;
+                write(clntSocket,buff,sizeof(Output_Buffer));
             }
             return;
         }

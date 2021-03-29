@@ -20,16 +20,33 @@ typedef struct Map {
     char* ip;
 } Map;
 
-typedef struct Buffer {
+typedef struct Output_Buffer {
     int is_error;
     int num_bytes;
+    int end_packet;
     char buff[BUFFER_SIZE];
-} Buffer;
+} Output_Buffer;
+
+typedef struct Input_Buffer {
+    int flag; // 0- Command buffer , 1 -Input buffer
+    char cmd_buff[PATH_MAX];
+    char ip_buff[BUFFER_SIZE];
+    int num_bytes;
+    int end_packet;
+} Input_Buffer;
 
 typedef struct Command {
     char *node;
     char *cmd;
+    struct Command *next;
 } Command;
+
+typedef struct Command_List {
+    Command * head;
+    int size;
+} Command_List;
 
 int find_map(char *ip, Map* ip_map);
 Map* file_loader(char *config_file_path);
+char* rtrim(char* string, char junk);
+char* ltrim(char* string, char junk);

@@ -45,3 +45,28 @@ Map* file_loader(char *config_file_path) {
     fclose(fp);
     return ip_map;
 }
+
+char* rtrim(char* string, char junk)
+{
+    char* original = string + strlen(string);
+    while(*--original == junk);
+    *(original + 1) = '\0';
+    return string;
+}
+
+char* ltrim(char *string, char junk)
+{
+    char* original = string;
+    char *p = original;
+    int trimmed = 0;
+    do
+    {
+        if (*original != junk || trimmed)
+        {
+            trimmed = 1;
+            *p++ = *original;
+        }
+    }
+    while (*original++ != '\0');
+    return string;
+}
