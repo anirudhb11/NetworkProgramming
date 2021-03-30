@@ -36,8 +36,7 @@
 #define CREATE_GRP 2
 #define JOIN_GRP 3
 #define LIST_GRP 4
-#define AUTO_DELETE 5
-#define EXIT 6
+#define EXIT 5
 #define SERVER_ACK 7
 #define SYN_REQ 8
 #define SYN_ACK 9

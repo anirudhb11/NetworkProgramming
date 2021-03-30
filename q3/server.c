@@ -27,7 +27,7 @@ void server_init(){
     }
     sync_msg_id = server_msg_queue_id;
 
-    printf("Server mq key %d Server msg queue id: %d\n",server_msg_queue_key,server_msg_queue_id);
+    printf("Server msg queue id: %d\n",server_msg_queue_id);
     client_msg_reply_id = msgget(CLIENT_SYNC_KEY, 0666 | IPC_CREAT);
     if(client_msg_reply_id < 0){
         perror("Client message queue couldn't be created:\n");
@@ -69,7 +69,7 @@ void reply_sync_message(packet syn_packet){
         perror("Error sending sync reply:");
         exit(0);
     }
-    printf("Server sent SYN response:\n");
+    printf("Server sent SYN response for client id %d:\n", cli_data.client_id);
     fflush(stdout);
 }
 

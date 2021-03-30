@@ -39,18 +39,6 @@ client_sync send_sync_message(int client_id){
     return syn_packet_reply.pkt.client_data;
 }
 
-/**
- * @return true if the message can be delivered to the client on the basis of timeout
- */
-bool is_deliverable(time_t msg_write_time){
-    time_t curr_time = time(NULL);
-    if(curr_time - msg_write_time < TIME_OUT){
-        return true;
-    }
-    else{
-        return false;
-    }
-}
 
 void read_pending_messages(client_sync client_ds){
     packet pending_pkt;
@@ -218,16 +206,18 @@ client_sync create_join_group(client_sync client_ds, int req_type){
 void client_init(){
     server_msg_queue_key = ftok(SERVER_REQ_PASSPHRASE, SERVER_REQ_KEY);
     server_msg_queue_id = msgget(server_msg_queue_key, 0666 | IPC_CREAT);
+    printf("\nServer MQ ID is: %d\n", server_msg_queue_id);
 
     if(server_msg_queue_id < 0){
         perror("Error creating server request handler MQ");
-        exit(0);
+        exit(errno);
     }
     sync_msg_id = server_msg_queue_id;
 
-    client_msg_reply_id = msgget(CLIENT_SYNC_KEY, 0666);
+    client_msg_reply_id = msgget(CLIENT_SYNC_KEY, 0666 | IPC_CREAT);
     if(client_msg_reply_id < 0){
         perror("Client message queue couldn't be created:");
+        exit(errno);
     }
 
     sem_id = semget(IPC_PRIVATE, 1, 0666 | IPC_CREAT);
