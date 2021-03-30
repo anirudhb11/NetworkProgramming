@@ -6,6 +6,7 @@
 #include<sys/socket.h>
 #include<arpa/inet.h>
 #include<string.h>
+#include<assert.h>
 
 #define SERV_PORT 1235
 #define MAX_PENDING 128

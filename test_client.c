@@ -177,9 +177,10 @@ void executor(Command *command,int* input_pipe,int* output_pipe) {
             exit(0);
         }
 
-        printf("Connection Successful !\n");
+        printf("\nConnection Successful !\n");
+        printf("bkkbkbk\n");
 
-        printf("The input pipe is: %d\n", input_pipe[0] );
+        // printf("\nThe input pipe is: %d\n", input_pipe[0] );
 
         //WRITING COMMAND
         write(clntSocket,ip_buff,sizeof(ip_buff));
@@ -199,8 +200,9 @@ void executor(Command *command,int* input_pipe,int* output_pipe) {
 
             ip_buff->end_packet = 1;
             strcpy(ip_buff->ip_buff, "sad");
-            
-            write(clntSocket,ip_buff,sizeof(Input_Buffer));
+
+            printf("The string is %s and %d\n",ip_buff->ip_buff, ip_buff->end_packet);
+            printf("The value is %d\n", write(clntSocket,ip_buff,sizeof(Input_Buffer)));
 
             printf("P3\n");
         }
@@ -257,11 +259,14 @@ int main(int argc, char const *argv[])
     while (current_cmd!=NULL)
     {
         printf("pi:%d\n",p_i);
+        assert(cmd_len == 1);
         int *input_pipe = p_i - 1 >=0 ? pipes[p_i - 1] : NULL;
-        int *output_pipe = (p_i == cmd_len -1) ? pipes[p_i] : NULL;
+        int *output_pipe = (p_i == cmd_len -1) ? NULL : pipes[p_i];
 
         printf("P0\n");
         // printf("Writing cmd %s to node \n", ip_buff->cmd_buff);
+        assert(input_pipe == NULL);
+        assert(output_pipe == NULL);
         executor(current_cmd,input_pipe, output_pipe);
         current_cmd = current_cmd -> next;
     }

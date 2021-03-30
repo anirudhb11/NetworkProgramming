@@ -134,10 +134,12 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
             while (1)
             {
                 read(clntSocket, ip_buff, sizeof(Input_Buffer));
-                printf("The read packet is: %s :: %d \n\n", ip_buff->ip_buff, ip_buff->end_packet);
+                printf("The read packet is: %s :: %d :: %d \n\n", ip_buff->ip_buff, ip_buff->end_packet, ip_buff->num_bytes);
                 if(ip_buff->end_packet) break;
-
+                printf("\n2asfdsf\n");
                 write(input_pipe[1],ip_buff->ip_buff,ip_buff->num_bytes);
+                printf("\nasfdsf\n");
+                fflush(stdout);
             }
 
             printf("P2\n");

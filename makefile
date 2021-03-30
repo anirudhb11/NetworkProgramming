@@ -1,4 +1,4 @@
-CC = gcc
+CC = gcc-10
 CFLAGS = -o
 DEPS = header.h
 OBJ1  =  test_client.o  util.o
