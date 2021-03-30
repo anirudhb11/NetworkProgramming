@@ -1,2 +1,0 @@
-# NetworkProgramming
-Network Programming Assignment
