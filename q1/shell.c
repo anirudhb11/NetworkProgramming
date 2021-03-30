@@ -113,6 +113,7 @@ int callExecutor(pipeline exec_pipeline, char *cwd, commandGroup *lastCmd){
     int child_pid = fork();
     if(child_pid < 0){
         perror("Error while forking:");
+        exit(0);
     }
     else if(child_pid == 0){
         signal(SIGINT, sigHandler);
@@ -149,7 +150,6 @@ int callExecutor(pipeline exec_pipeline, char *cwd, commandGroup *lastCmd){
             }
         }
         else{
-            printf("Going to wait for pID: %d\n", child_pid);
             waitpid(child_pid, &status, 0);
             printf("Process terminated with status %d\n", status);
         }

@@ -99,6 +99,7 @@ int main(int argc, char *argv[])
         int childPid = fork();
         if(childPid < 0){
             perror("Error while forking:");
+            exit(0);
         }
         else if(childPid == 0){
 

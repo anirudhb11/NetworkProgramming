@@ -53,6 +53,7 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes, char
     int ret = fork();
     if(ret == -1){
         perror("Forking failed:");
+        exit(0);
     }
     else if(ret == 0){
         char *buff = (char *)malloc(sizeof(char) * 4096);
@@ -61,6 +62,7 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes, char
             readBytes = read(readPipes[0], buff, 4096);
             if(readBytes < 0){
                 perror("Error reading data\n");
+                exit(0);
             }
             buff[readBytes] = '\0';
 
@@ -72,17 +74,20 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes, char
             int ret = fork();
             if(ret < 0){
                 perror("Forking failed while executing subcommand:");
+                exit(0);
             }
             if(ret == 0){
                 int rfd = 0, wfd = 1;
 
                 if(close(tempPipe[1]) < 0){
                     perror("Couldn't close temporary pipe\n");
+                    exit(0);
                 }
                 if(cmd.inputRedirect[subCommandIndex] == true){
                     int fd = open(cmd.inputFilename[subCommandIndex], O_RDONLY);
                     if(fd < 0){
                         perror("Failed to open file to read:");
+                        exit(0);
                     }
                     rfd = fd;
                     dup2(fd, STDIN_FILENO);
@@ -105,7 +110,7 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes, char
 
                         if(fd < 0){
                             perror("Failed to open file to write:");
-                            printf("Err no: %d\n",errno);
+                            exit(0);
                         }
                         wfd = fd;
                         printProcessDetails(cmd, subCommandIndex, rfd, wfd);
@@ -131,6 +136,7 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes, char
 
                     execvp(cmd.command[subCommandIndex], cmd.argv[subCommandIndex]);
                     perror("Failed to exec command");
+                    exit(0);
                 }
 
 
@@ -149,6 +155,7 @@ void executeCommandGroup(commandGroup cmd, int *readPipes, int *writePipes, char
 //                    printf("[BEFORE] State of working directory is: %s\n", cwd);
                     if(chdir(cmd.argv[subCommandIndex][1]) == -1){
                         perror("Error changing directory:");
+                        exit(0);
                     }
                     getcwd(cwd, 1024);
                 }
