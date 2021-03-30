@@ -1,6 +1,7 @@
 #include "header.h"
 
 char ** directories;
+char username[PATH_MAX];
 
 int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
     //given old absolute path and new relative path the function returns new
@@ -175,11 +176,15 @@ int main(int argc, char const *argv[])
     // Loading ips' map into the system.
     Map * ip_map = file_loader(CONFIG_FILE_PATH);
 
+    printf("\nEnter the username for home directory: ");
+    gets(username);
+
     directories = (char **) malloc(NODE_COUNT * sizeof(char *));
     for (int i = 0; i < NODE_COUNT; i++)
     {
         directories[i] = (char*) malloc(sizeof(char) * PATH_MAX);
         strcpy(directories[i], HOME_DIRECTORY);
+        strcat(directories[i],username);
     }
     
 

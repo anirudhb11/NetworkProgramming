@@ -13,7 +13,7 @@
 #define BUFFER_SIZE 20
 #define CONFIG_FILE_PATH "./config.txt"
 #define NODE_COUNT 3
-#define HOME_DIRECTORY "/Users/ashishkumar"
+#define HOME_DIRECTORY "/Users/"
 #define SERV_ADDR "172.17.32.24"
 
 typedef struct Map {
