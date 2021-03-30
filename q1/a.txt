@@ -1,32 +1,15 @@
-total 132
--rw------- 1 vichu vichu     0 Mar 30 11:21 a.txt
--rw-rw-r-- 1 vichu vichu  2185 Mar 22 15:07 execCommand.c
--rw-rw-r-- 1 vichu vichu  2849 Mar 26 14:35 fileDescriptors.c
--rw-rw-r-- 1 vichu vichu  1899 Mar 30 10:15 header.h
--rw-rw-r-- 1 vichu vichu   206 Mar 30 10:28 makefile
--rw-rw-r-- 1 vichu vichu  6679 Mar 30 11:21 parseInput.c
--rw-rw-r-- 1 vichu vichu  7256 Mar 30 11:21 parseInput.o
--rw-rw-r-- 1 vichu vichu 13383 Mar 30 10:15 pipe.c
--rw-rw-r-- 1 vichu vichu  8704 Mar 30 10:20 pipe.o
--rwxrwxr-x 1 vichu vichu 36320 Mar 30 11:21 shell
--rw-rw-r-- 1 vichu vichu  6819 Mar 30 10:15 shell.c
--rw-rw-r-- 1 vichu vichu  3041 Mar 26 14:35 shellDriver.c
--rw-rw-r-- 1 vichu vichu 11056 Mar 30 10:20 shell.o
--rw-rw-r-- 1 vichu vichu  2751 Mar 23 14:48 stringUtils.c
--rw-rw-r-- 1 vichu vichu  4616 Mar 30 10:20 stringUtils.o
-total 136
--rw------- 1 vichu vichu   830 Mar 30 11:21 a.txt
--rw-rw-r-- 1 vichu vichu  2185 Mar 22 15:07 execCommand.c
--rw-rw-r-- 1 vichu vichu  2849 Mar 26 14:35 fileDescriptors.c
--rw-rw-r-- 1 vichu vichu  1899 Mar 30 10:15 header.h
--rw-rw-r-- 1 vichu vichu   206 Mar 30 10:28 makefile
--rw-rw-r-- 1 vichu vichu  6679 Mar 30 11:21 parseInput.c
--rw-rw-r-- 1 vichu vichu  7256 Mar 30 11:21 parseInput.o
--rw-rw-r-- 1 vichu vichu 13383 Mar 30 10:15 pipe.c
--rw-rw-r-- 1 vichu vichu  8704 Mar 30 10:20 pipe.o
--rwxrwxr-x 1 vichu vichu 36320 Mar 30 11:21 shell
--rw-rw-r-- 1 vichu vichu  6819 Mar 30 10:15 shell.c
--rw-rw-r-- 1 vichu vichu  3041 Mar 26 14:35 shellDriver.c
--rw-rw-r-- 1 vichu vichu 11056 Mar 30 10:20 shell.o
--rw-rw-r-- 1 vichu vichu  2751 Mar 23 14:48 stringUtils.c
--rw-rw-r-- 1 vichu vichu  4616 Mar 30 10:20 stringUtils.o
+a.txt
+execCommand.c
+fileDescriptors.c
+header.h
+makefile
+parseInput.c
+parseInput.o
+pipe.c
+pipe.o
+shell
+shell.c
+shellDriver.c
+shell.o
+stringUtils.c
+stringUtils.o

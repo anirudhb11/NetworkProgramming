@@ -6,7 +6,7 @@ bool search(char *inp, char ch)
     {
         if (inp[i] == ch)
         {
-            inp[i] = '\0';
+            //inp[i] = '\0';
             return true;
         }
         i++;
@@ -20,7 +20,7 @@ int charPos(char *inp, char ch)
     {
         if (inp[i] == ch)
         {
-            inp[i] = '\0';
+            //inp[i] = '\0';
             return i;
         }
         i++;

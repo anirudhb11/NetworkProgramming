@@ -12,7 +12,7 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
         int pos = charPos(tokens[cmdNum], '<');
         int l = strlen(tokens[cmdNum]);
         if (pos < l - 1)
-            cmd->inputFilename[0] = slicestring(pos + 1, l - 1, tokens[cmdNum]);
+            cmd->inputFilename[0] = slicestring(pos + 1, l , tokens[cmdNum]);
         cmd->command[pipeNum] = findPath(slicestring(0, pos - 1, tokens[cmdNum]));
         cmd->argv[pipeNum][0] = slicestring(0, pos - 1, tokens[cmdNum]);
         cmd->inputRedirect[pipeNum] = true;
@@ -58,8 +58,8 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
                 cmd->inputRedirect[pipeNum] = true;
                 i++;
             }
-            else
-                cmd->inputFilename[0] = slicestring(1, strlen(tokens[i]) - 1, tokens[i]);
+            else if(strlen(tokens[i]) > 1)
+                cmd->inputFilename[0] = slicestring(1, strlen(tokens[i]) , tokens[i]);
         }
         else if (tokens[i][0] == '>')
         {
