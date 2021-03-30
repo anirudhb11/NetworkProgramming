@@ -31,9 +31,9 @@ typedef struct Output_Buffer {
 typedef struct Input_Buffer {
     int flag; // 0- Command buffer , 1 -Input buffer
     char cmd_buff[PATH_MAX];
-    char ip_buff[BUFFER_SIZE];
     int num_bytes;
     int end_packet;
+    char ip_buff[BUFFER_SIZE];
 } Input_Buffer;
 
 typedef struct Command {

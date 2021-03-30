@@ -22,6 +22,7 @@ int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
         printf("\nCurrent stored directory path for node %d has been corrupted\n", node);
         return -1;
     }
+    printf("Suck my dick : %s\n", relativ_p);
     if(chdir(relativ_p) < 0) {
         perror("\nThe change is not valid: ");
         // printf("The value is: %d", p_err[1]);
@@ -90,10 +91,9 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
 
         Output_Buffer * buff = (Output_Buffer*) malloc(sizeof(Output_Buffer));
         
-        pid_t exec_proc = fork();
-
         int input_pipe[2];
         pipe(input_pipe);
+        pid_t exec_proc = fork();
 
         if(exec_proc == 0) {
             //Closing read end of pipe
@@ -108,13 +108,14 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
 
             close(0);
             dup(input_pipe[0]);
+            close(input_pipe[0]);
             int ch_out = chdir(directories[node]);
             if(ch_out < 0) {
                 perror("\nChange directory error: ");
                 exit(1);
             }
 
-            printf("C1\n");
+            //printf("C1\n");
             if(execvp(args[0],args) < 0) {
                 perror("\nExecution Error: ");
                 exit(1);
@@ -134,11 +135,11 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
             while (1)
             {
                 read(clntSocket, ip_buff, sizeof(Input_Buffer));
-                printf("The read packet is: %s :: %d :: %d \n\n", ip_buff->ip_buff, ip_buff->end_packet, ip_buff->num_bytes);
+                //printf("The read packet is: %s :: %d :: %d \n\n", ip_buff->ip_buff, ip_buff->end_packet, ip_buff->num_bytes);
                 if(ip_buff->end_packet) break;
-                printf("\n2asfdsf\n");
+                //printf("\n2asfdsf\n");
                 write(input_pipe[1],ip_buff->ip_buff,ip_buff->num_bytes);
-                printf("\nasfdsf\n");
+                //printf("\nasfdsf\n");
                 fflush(stdout);
             }
 
@@ -249,6 +250,7 @@ int main(int argc, char const *argv[])
                 exit(0);
             }
             printf("\nThe command is: %s and serving process id is: %d\n", ip_buff->cmd_buff, getpid());
+            //printf("The read packet is: %s :: %d :: %d :: %d \n\n", ip_buff->cmd_buff, ip_buff->end_packet, ip_buff->num_bytes, ip_buff->flag);
             executor(ip_buff->cmd_buff,node,clntSocket, direc_pipe[1]);
             exit(0);
         }
