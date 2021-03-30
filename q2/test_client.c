@@ -74,7 +74,7 @@ void executor(Command *command,int* input_pipe,int* output_pipe) {
         
         int node;
 
-        if((node = find_map_node(command->node, ip_map, NODE_COUNT)) < 0) {
+        if((node = find_map_node(command->node, ip_map, NODE_COUNT)) == -1) {
             printf("\nNode %s does not exist\n",command->node);
             exit(1);
         }
@@ -166,6 +166,14 @@ int main(int argc, char const *argv[])
             char cmd[PATH_MAX];
             printf("\n$ ");
             gets(cmd);
+
+            if(!strcmp(cmd,"nodes")) {
+                for(int i= 0 ; i < NODE_COUNT ; i++ ){
+                    printf("Node :%s \t IP %s\n",ip_map[i].node, ip_map[i].ip);
+                }
+                exit(0);
+            }
+
             Command_List *cmd_head = parse_command(cmd);
 
             int cmd_len = cmd_head->size;
@@ -186,7 +194,19 @@ int main(int argc, char const *argv[])
                 int *input_pipe = p_i - 1 >=0 ? pipes[p_i - 1] : NULL;
                 int *output_pipe = (p_i == cmd_len -1) ? NULL : pipes[p_i];
 
-                executor(current_cmd,input_pipe, output_pipe);
+                int node;
+                if((node = find_map_node(current_cmd->node, ip_map, NODE_COUNT)) == -2) {
+
+                    // printf("Executing the dsfs command");
+                    for (int i = 0; i < NODE_COUNT; i++)
+                    {
+                        strcpy(current_cmd->node, ip_map[i].node);
+                        executor(current_cmd, NULL, output_pipe);
+                    }
+                    
+                } else {
+                    executor(current_cmd,input_pipe, output_pipe);
+                }
                 if(output_pipe != NULL) {
                     close(output_pipe[1]);
                 }
