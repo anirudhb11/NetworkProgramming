@@ -22,9 +22,9 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
         int pos = charPos(tokens[cmdNum], '>');
         int l = strlen(tokens[cmdNum]);
         if (pos < l - 1 && tokens[cmdNum][pos + 1] != '>')
-            cmd->outputFilename[0] = slicestring(pos + 1, l - 1, tokens[cmdNum]);
+            cmd->outputFilename[pipeNum] = slicestring(pos + 1, l - 1, tokens[cmdNum]);
         else if (pos + 1 < l - 1 && tokens[cmdNum][pos + 1] == '>')
-            cmd->outputAppend[0] = slicestring(pos + 2, l - 1, tokens[cmdNum]);
+            cmd->outputAppend[pipeNum] = slicestring(pos + 2, l - 1, tokens[cmdNum]);
 
         cmd->command[pipeNum] = findPath(slicestring(0, pos - 1, tokens[cmdNum]));
         cmd->argv[pipeNum][0] = slicestring(0, pos - 1, tokens[cmdNum]);
