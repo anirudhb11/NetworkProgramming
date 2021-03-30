@@ -151,7 +151,6 @@ int callExecutor(pipeline exec_pipeline, char *cwd, commandGroup *lastCmd){
         }
         else{
             waitpid(child_pid, &status, 0);
-            printf("Process terminated with status %d\n", status);
         }
     }
 
@@ -259,7 +258,6 @@ int main(int argc, char *argv[])
         if( !input) continue;
 
         commandGroup* cmd = parseInput(input);
-
         pipeline exec_pipeline;
         exec_pipeline.firstCommand = cmd;
         exec_pipeline.numberOfCommands = find_num_commands(cmd);

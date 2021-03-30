@@ -1,4 +1,5 @@
 #include "header.h"
+
 bool search(char *inp, char ch)
 {
     int i = 0;
@@ -6,13 +7,13 @@ bool search(char *inp, char ch)
     {
         if (inp[i] == ch)
         {
-            //inp[i] = '\0';
             return true;
         }
         i++;
     }
     return false;
 }
+
 int charPos(char *inp, char ch)
 {
     int i = 0;
@@ -20,7 +21,6 @@ int charPos(char *inp, char ch)
     {
         if (inp[i] == ch)
         {
-            //inp[i] = '\0';
             return i;
         }
         i++;
@@ -32,7 +32,6 @@ char *slicestring(int left, int right, char *inp)
 {
     char *s = (char *)malloc((right - left + 1) * sizeof(char));
     int j = 0;
-    //printf("slicing from %d to %d \n", left, right);
 
     for (int i = left; i <= right; i++)
     {
@@ -96,6 +95,7 @@ char **tokenize(char *line, char* delim)
     tokens[position] = NULL;
     return tokens;
 }
+
 char *findPath(char *token0)
 {
     token0 = trimwhitespace(token0);

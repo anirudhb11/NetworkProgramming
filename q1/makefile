@@ -1,4 +1,4 @@
-CC = gcc-10
+CC = gcc
 CFLAGS = -o
 DEPS = header.h
 OBJ  =  shell.o  parseInput.o stringUtils.o pipe.o
