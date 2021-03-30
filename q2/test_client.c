@@ -69,8 +69,12 @@ void executor(Command *command,int* input_pipe,int* output_pipe) {
         bzero(&serv_addr, sizeof(serv_addr));
         serv_addr.sin_family = AF_INET;
         serv_addr.sin_port = htons(SERV_PORT);
-
-        serv_addr.sin_addr.s_addr = inet_addr(ip_map[find_map_node(command->node, ip_map)].ip);
+        
+        int node;
+        if((node = find_map_node(command->node, ip_map)) < 0) {
+            printf("\nNode %s does not exist\n",command->node);
+        }
+        serv_addr.sin_addr.s_addr = inet_addr(ip_map[node].ip);
 
         //INIT IP BUFFER FOR COMMAND
         Input_Buffer * ip_buff = (Input_Buffer *) malloc(sizeof(Input_Buffer));
