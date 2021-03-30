@@ -2,6 +2,7 @@
 
 char ** directories;
 char username[PATH_MAX];
+int NODE_COUNT;
 
 int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
     //given old absolute path and new relative path the function returns new
@@ -174,7 +175,7 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
 int main(int argc, char const *argv[])
 {
     // Loading ips' map into the system.
-    Map * ip_map = file_loader(CONFIG_FILE_PATH);
+    Map * ip_map = file_loader(CONFIG_FILE_PATH, &NODE_COUNT);
 
     printf("\nEnter the username for home directory: ");
     gets(username);
@@ -220,7 +221,7 @@ int main(int argc, char const *argv[])
 
         printf("\n\nHandling client: %s\n",inet_ntoa(clnt_addr.sin_addr));
         int node;
-        if((node = find_map_ip(inet_ntoa(clnt_addr.sin_addr), ip_map)) < 0) {
+        if((node = find_map_ip(inet_ntoa(clnt_addr.sin_addr), ip_map, NODE_COUNT)) < 0) {
             printf("\nClient not in Config File List\n");
             exit(1);
         }

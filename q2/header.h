@@ -11,9 +11,9 @@
 #define SERV_PORT 6970
 #define MAX_PENDING 128
 #define BUFFER_SIZE 20
+#define MAX_NODE_COUNT 10
 #define CONFIG_FILE_PATH "./config.txt"
-#define NODE_COUNT 2
-#define HOME_DIRECTORY "/Users/"
+#define HOME_DIRECTORY "/home/"
 #define SERV_ADDR "172.17.32.24"
 
 typedef struct Map {
@@ -47,8 +47,8 @@ typedef struct Command_List {
     int size;
 } Command_List;
 
-int find_map_ip(char *ip, Map* ip_map);
-int find_map_node(char *node, Map* ip_map);
-Map* file_loader(char *config_file_path);
+int find_map_ip(char *ip, Map* ip_map, int node_count);
+int find_map_node(char *node, Map* ip_map, int node_count);
+Map* file_loader(char *config_file_path, int* len);
 char* rtrim(char* string, char junk);
 char* ltrim(char* string, char junk);

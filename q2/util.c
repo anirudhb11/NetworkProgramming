@@ -1,6 +1,6 @@
 #include "header.h"
 
-int find_map_ip(char *ip, Map* ip_map) {
+int find_map_ip(char *ip, Map* ip_map, int NODE_COUNT) {
     for(int i=0 ; i < NODE_COUNT ; i++) {
         if(!strcmp(ip_map[i].ip, ip)) {
             return i;
@@ -9,7 +9,7 @@ int find_map_ip(char *ip, Map* ip_map) {
     return -1;
 }
 
-int find_map_node(char *node, Map*ip_map) {
+int find_map_node(char *node, Map*ip_map, int NODE_COUNT) {
     for(int i=0 ; i < NODE_COUNT ; i++) {
         if(!strcmp(ip_map[i].node, node)) {
             return i;
@@ -18,14 +18,14 @@ int find_map_node(char *node, Map*ip_map) {
     return -1;
 }
 
-Map* file_loader(char *config_file_path) {
+Map* file_loader(char *config_file_path, int * node_len) {
     //Assuming the ip mapping is stored in config.txt
     FILE * fp;
     char * line = NULL;
     size_t len = 0;
     ssize_t read;
 
-    Map * ip_map = (Map *) malloc(NODE_COUNT * sizeof(Map));
+    Map * ip_map = (Map *) malloc(MAX_NODE_COUNT * sizeof(Map));
 
     fp = fopen(config_file_path, "r");
     if(fp == NULL) {
@@ -37,8 +37,8 @@ Map* file_loader(char *config_file_path) {
 
     while ((read = getline(&line,&len, fp)) != -1)
     {
-        if(count >= NODE_COUNT) {
-            printf("\nBad config file. More IPs than configuration\n");
+        if(count >= MAX_NODE_COUNT) {
+            printf("\nBad config file. More nodes than MAX_NODE_COUNT\n");
             exit(1);
         }
         char * temp = (char *) malloc(sizeof(char) * len);
@@ -51,6 +51,7 @@ Map* file_loader(char *config_file_path) {
         count++;
     }
 
+    *node_len = count;
     fclose(fp);
     return ip_map;
 }

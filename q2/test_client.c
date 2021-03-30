@@ -2,6 +2,8 @@
 
 Map *ip_map;
 
+int NODE_COUNT;
+
 Command * fill_command(char *param) {
     Command * command = (Command *) malloc(sizeof(Command));
 
@@ -72,9 +74,8 @@ void executor(Command *command,int* input_pipe,int* output_pipe) {
         
         int node;
 
-        if((node = find_map_node(command->node, ip_map)) < 0) {
+        if((node = find_map_node(command->node, ip_map, NODE_COUNT)) < 0) {
             printf("\nNode %s does not exist\n",command->node);
-            fflush(stdout);
             exit(1);
         }
         serv_addr.sin_addr.s_addr = inet_addr(ip_map[node].ip);
@@ -153,7 +154,7 @@ int main(int argc, char const *argv[])
 {
 
     //CONFIG MAP
-    ip_map = file_loader(CONFIG_FILE_PATH);
+    ip_map = file_loader(CONFIG_FILE_PATH, &NODE_COUNT);
 
     //COMMAND/ IO BUFFER INIT AND PROCESS
 
@@ -191,7 +192,6 @@ int main(int argc, char const *argv[])
                 }
                 current_cmd = current_cmd -> next;
                 p_i++;
-                fflush(stdout);
 
             }
         } else {
