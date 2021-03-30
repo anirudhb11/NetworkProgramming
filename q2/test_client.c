@@ -71,8 +71,11 @@ void executor(Command *command,int* input_pipe,int* output_pipe) {
         serv_addr.sin_port = htons(SERV_PORT);
         
         int node;
+
         if((node = find_map_node(command->node, ip_map)) < 0) {
             printf("\nNode %s does not exist\n",command->node);
+            fflush(stdout);
+            exit(1);
         }
         serv_addr.sin_addr.s_addr = inet_addr(ip_map[node].ip);
 
@@ -188,11 +191,14 @@ int main(int argc, char const *argv[])
                 }
                 current_cmd = current_cmd -> next;
                 p_i++;
+                fflush(stdout);
+
             }
         } else {
             wait(NULL);
             printf("\n\n");
         }
+
     }
     return 0;
 }

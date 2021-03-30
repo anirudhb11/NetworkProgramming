@@ -8,11 +8,11 @@
 #include<string.h>
 #include<assert.h>
 
-#define SERV_PORT 1235
+#define SERV_PORT 6970
 #define MAX_PENDING 128
 #define BUFFER_SIZE 20
 #define CONFIG_FILE_PATH "./config.txt"
-#define NODE_COUNT 3
+#define NODE_COUNT 2
 #define HOME_DIRECTORY "/Users/"
 #define SERV_ADDR "172.17.32.24"
 
