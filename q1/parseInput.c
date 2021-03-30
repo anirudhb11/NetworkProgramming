@@ -6,8 +6,7 @@ commandGroup* getNewCommand()
 }
 void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
 {
-    
-    
+    //printf("%s \n", tokens[cmdNum]);
     if (search(tokens[cmdNum], '<'))
     {
         int pos = charPos(tokens[cmdNum], '<');
@@ -16,15 +15,24 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
             cmd->inputFilename[0] = slicestring(pos + 1, l - 1, tokens[cmdNum]);
         cmd->command[pipeNum] = findPath(slicestring(0, pos - 1, tokens[cmdNum]));
         cmd->argv[pipeNum][0] = slicestring(0, pos - 1, tokens[cmdNum]);
+        cmd->inputRedirect[pipeNum] = true;
     }
     else if (search(tokens[cmdNum], '>'))
     {
         int pos = charPos(tokens[cmdNum], '>');
         int l = strlen(tokens[cmdNum]);
         if (pos < l - 1 && tokens[cmdNum][pos + 1] != '>')
+        {
             cmd->outputFilename[pipeNum] = slicestring(pos + 1, l - 1, tokens[cmdNum]);
+            cmd->outputRedirect[pipeNum] = true;
+        }
         else if (pos + 1 < l - 1 && tokens[cmdNum][pos + 1] == '>')
-            cmd->outputAppend[pipeNum] = slicestring(pos + 2, l - 1, tokens[cmdNum]);
+        {
+            cmd->outputFilename[pipeNum] = slicestring(pos + 2, l - 1, tokens[cmdNum]);
+            //printf("APPEND \n");
+            cmd->outputAppend[pipeNum] = true;
+            cmd->outputRedirect[pipeNum] = false;
+        }
 
         cmd->command[pipeNum] = findPath(slicestring(0, pos - 1, tokens[cmdNum]));
         cmd->argv[pipeNum][0] = slicestring(0, pos - 1, tokens[cmdNum]);
@@ -71,7 +79,7 @@ void handleLine(char** tokens, commandGroup* cmd, int pipeNum, int cmdNum)
                 if (strlen(tokens[i]) == 2)
                 {
                     cmd->outputFilename[pipeNum] = tokens[i + 1];
-                    cmd->outputRedirect[pipeNum] = true;
+                    cmd->outputAppend[pipeNum] = true;
                     i++;
                 }
                 else
