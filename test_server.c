@@ -14,8 +14,6 @@ int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
 
     Output_Buffer * buff = (Output_Buffer *) malloc(sizeof(Output_Buffer));
 
-    // printf("\nThe PID is: %d\n", getpid());
-    // printf("\nThe write end is: %d and read end is: %d\n",p_err[1], p_err[0]);
     close(2);
     dup(p_err[1]);
     close(p_err[1]);
@@ -24,22 +22,19 @@ int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
         printf("\nCurrent stored directory path for node %d has been corrupted\n", node);
         return -1;
     }
-    printf("Suck my dick : %s\n", relativ_p);
+    
     if(chdir(relativ_p) < 0) {
-        perror("\nThe change is not valid: ");
-        // printf("The value is: %d", p_err[1]);
+        perror("\nDirectory change invalid");
         close(2);
-        //printf("\nThe change is not valid");
-        //What to do in this case ? Return the error back to requesting function.
         int num_bytes;
+
         while((num_bytes = read(p_err[0],buff->buff,BUFFER_SIZE)) > 0 ) {
-                        //printf("\nError:%s\n",buff->buff);
-                        buff -> is_error = 1;
-                        buff -> num_bytes = num_bytes;
-                        buff -> end_packet = 0;
-                        write(clntSocket,buff,sizeof(Output_Buffer));
-                        printf("\nStat2: %s\n", buff->buff);
-                    }
+            buff -> is_error = 1;
+            buff -> num_bytes = num_bytes;
+            buff -> end_packet = 0;
+            write(clntSocket,buff,sizeof(Output_Buffer));
+        }
+
         buff->end_packet = 1;
         buff->num_bytes= 0;
         write(clntSocket,buff,sizeof(Output_Buffer));
@@ -116,13 +111,13 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
             close(input_pipe[0]);
             int ch_out = chdir(directories[node]);
             if(ch_out < 0) {
-                perror("\nChange directory error: ");
+                perror("\nChange directory error");
                 exit(1);
             }
 
             //printf("C1\n");
             if(execvp(args[0],args) < 0) {
-                perror("\nExecution Error for cmd %s",cmd);
+                fprintf(stderr,"\nExecution Error for cmd %s",cmd);
                 exit(1);
             }
         } else {
@@ -132,33 +127,23 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
             //Closing read end of input pipe.
             close(input_pipe[0]);
 
-            printf("P1\n");
-
             int stat, num_bytes;
             Input_Buffer* ip_buff = (Input_Buffer *) malloc(sizeof(Input_Buffer));
 
             while (1)
             {
                 read(clntSocket, ip_buff, sizeof(Input_Buffer));
-                //printf("The read packet is: %s :: %d :: %d \n\n", ip_buff->ip_buff, ip_buff->end_packet, ip_buff->num_bytes);
                 if(ip_buff->end_packet) break;
-                //printf("\n2asfdsf\n");
                 write(input_pipe[1],ip_buff->ip_buff,ip_buff->num_bytes);
-                //printf("\nasfdsf\n");
-                fflush(stdout);
             }
-
-            printf("P2\n");
 
             close(input_pipe[1]);
             
-
             wait(&stat);
-            printf("\nStat is: %d\n",stat);
+            
             if(WIFEXITED(stat)) {
                 if(WEXITSTATUS(stat) > 0) {
                     while((num_bytes = read(p_err[0],buff->buff,BUFFER_SIZE)) > 0 ) {
-                        //printf("\nError:%s\n",buff->buff);
                         buff -> is_error = 1;
                         buff -> num_bytes = num_bytes;
                         buff -> end_packet = 0;
@@ -168,7 +153,6 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
                 }
                 else {
                     while((num_bytes = read(p[0],buff->buff,BUFFER_SIZE)) > 0 ) {
-                        //printf("\nNormal:%s\n",buff->buff);
                         buff -> is_error = 0;
                         buff -> num_bytes = num_bytes;
                         buff -> end_packet = 0;
@@ -239,13 +223,9 @@ int main(int argc, char const *argv[])
         int direc_pipe[2];
         pipe(direc_pipe);
 
-        // printf("\nThe direc pipe write end is: %d and read end is %d\n", direc_pipe[1], direc_pipe[0]);
-
         int ret = fork();
         if(ret == 0) {
             //Child Process particular to a single node client.
-
-            //char cmd_buffer[PATH_MAX];
             Input_Buffer * ip_buff = (Input_Buffer *) malloc(sizeof(Input_Buffer));
             char c;
             close(servSocket);
@@ -255,7 +235,6 @@ int main(int argc, char const *argv[])
                 exit(0);
             }
             printf("\nThe command is: %s and serving process id is: %d\n", ip_buff->cmd_buff, getpid());
-            //printf("The read packet is: %s :: %d :: %d :: %d \n\n", ip_buff->cmd_buff, ip_buff->end_packet, ip_buff->num_bytes, ip_buff->flag);
             executor(ip_buff->cmd_buff,node,clntSocket, direc_pipe[1]);
             exit(0);
         }
@@ -265,7 +244,7 @@ int main(int argc, char const *argv[])
             int count_bytes = read(direc_pipe[0],directories[node],PATH_MAX);
             if(count_bytes>0 && count_bytes<PATH_MAX) 
                 directories[node][count_bytes] = '\0';
-            printf("\nThe changed directory is: %s\n", directories[node]);
+            printf("\nThe changed directory is: %s for node n%d\n", directories[node], node+1);
             wait(NULL);
             close(direc_pipe[0]);
         }
