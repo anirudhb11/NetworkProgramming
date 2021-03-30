@@ -1,8 +1,8 @@
 CC = gcc
 CFLAGS = -o
 DEPS = message_queue.h
-OBJ1  =  client.o
-OBJ2  =  server.o
+OBJ1  =  msgq_client.o
+OBJ2  =  msgq_server.o
 
 all: client server
 
