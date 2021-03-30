@@ -14,7 +14,6 @@
 #define MAX_NODE_COUNT 10
 #define CONFIG_FILE_PATH "./config.txt"
 #define HOME_DIRECTORY "/home/"
-#define SERV_ADDR "172.17.32.24"
 
 typedef struct Map {
     char* node;
