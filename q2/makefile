@@ -1,8 +1,8 @@
 CC = gcc
 CFLAGS = -o
 DEPS = header.h
-OBJ1  =  test_client.o  util.o
-OBJ2  =  test_server.o  util.o
+OBJ1  =  clustershell_client.o  util.o
+OBJ2  =  clustershell_server.o  util.o
 
 all: client server
 

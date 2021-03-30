@@ -197,7 +197,6 @@ int main(int argc, char const *argv[])
                 int node;
                 if((node = find_map_node(current_cmd->node, ip_map, NODE_COUNT)) == -2) {
 
-                    // printf("Executing the dsfs command");
                     for (int i = 0; i < NODE_COUNT; i++)
                     {
                         strcpy(current_cmd->node, ip_map[i].node);
