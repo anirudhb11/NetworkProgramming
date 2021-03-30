@@ -137,7 +137,7 @@ Command_List* parse_command(char *cmd) {
 //     return 0;
 // }
 
-void executor(Command *command,int input_pipe,int output_pipe) {
+void executor(Command *command,int* input_pipe,int* output_pipe) {
     pid_t pid = fork();
 
     if(pid == 0) {
@@ -179,14 +179,14 @@ void executor(Command *command,int input_pipe,int output_pipe) {
 
         printf("Connection Successful !\n");
 
-        printf("The input pipe is: %d\n",input_pipe );
+        printf("The input pipe is: %d\n", input_pipe[0] );
 
         //WRITING COMMAND
         write(clntSocket,ip_buff,sizeof(ip_buff));
 
         //WRITING INPUT IN CASE INPUT IS THERE.
-        if(input_pipe >= 0) {
-            while((num_bytes = read(input_pipe,ip_buff->ip_buff,BUFFER_SIZE)) > 0 ) {
+        if(input_pipe != NULL) {
+            while((num_bytes = read(input_pipe[0],ip_buff->ip_buff,BUFFER_SIZE)) > 0 ) {
                 ip_buff -> flag = 1;
                 ip_buff -> num_bytes = num_bytes;
                 ip_buff -> end_packet =0;
@@ -198,8 +198,10 @@ void executor(Command *command,int input_pipe,int output_pipe) {
         } else {
 
             ip_buff->end_packet = 1;
-            write(clntSocket,ip_buff,sizeof(Input_Buffer));
+            strcpy(ip_buff->ip_buff, "sad");
             
+            write(clntSocket,ip_buff,sizeof(Input_Buffer));
+
             printf("P3\n");
         }
 
@@ -211,7 +213,7 @@ void executor(Command *command,int input_pipe,int output_pipe) {
                 break;
             }
             if(!op_buff->is_error) {
-                if(output_pipe >=0) write(output_pipe,op_buff -> buff,op_buff->num_bytes);
+                if(output_pipe !=NULL) write(output_pipe[1],op_buff -> buff,op_buff->num_bytes);
                 else write(1,op_buff->buff,op_buff->num_bytes);
             } else {
                 write(2 ,op_buff -> buff,op_buff->num_bytes);
@@ -220,7 +222,7 @@ void executor(Command *command,int input_pipe,int output_pipe) {
         exit(0);
 
     } else {
-        if(input_pipe >= 0) close(input_pipe);
+        if(input_pipe != NULL) close(input_pipe[1]);
         wait(NULL);
     }
 }
@@ -255,10 +257,9 @@ int main(int argc, char const *argv[])
     while (current_cmd!=NULL)
     {
         printf("pi:%d\n",p_i);
-        int input_pipe = p_i - 1 >=0 ? pipes[p_i - 1][0] : -1;
-        int output_pipe = (p_i == cmd_len -1) ? pipes[p_i][0] : -1;
+        int *input_pipe = p_i - 1 >=0 ? pipes[p_i - 1] : NULL;
+        int *output_pipe = (p_i == cmd_len -1) ? pipes[p_i] : NULL;
 
-        if(input_pipe >=0) {}
         printf("P0\n");
         // printf("Writing cmd %s to node \n", ip_buff->cmd_buff);
         executor(current_cmd,input_pipe, output_pipe);

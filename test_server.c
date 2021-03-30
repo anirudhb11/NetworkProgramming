@@ -42,7 +42,6 @@ int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
         buff->num_bytes= 0;
         write(clntSocket,buff,sizeof(Output_Buffer));
         
-        // printf("dsdfdsf\n");
         close(p_err[0]);
         return -1;
     }
@@ -135,7 +134,7 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
             while (1)
             {
                 read(clntSocket, ip_buff, sizeof(Input_Buffer));
-                printf("The read packet is: %s :: %d \n\n", ip_buff->cmd_buff, ip_buff->end_packet);
+                printf("The read packet is: %s :: %d \n\n", ip_buff->ip_buff, ip_buff->end_packet);
                 if(ip_buff->end_packet) break;
 
                 write(input_pipe[1],ip_buff->ip_buff,ip_buff->num_bytes);
