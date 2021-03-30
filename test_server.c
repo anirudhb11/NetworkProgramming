@@ -12,6 +12,8 @@ int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
     pipe(p_err);
     int temp;
 
+    Output_Buffer * buff = (Output_Buffer *) malloc(sizeof(Output_Buffer));
+
     // printf("\nThe PID is: %d\n", getpid());
     // printf("\nThe write end is: %d and read end is: %d\n",p_err[1], p_err[0]);
     close(2);
@@ -29,7 +31,6 @@ int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
         close(2);
         //printf("\nThe change is not valid");
         //What to do in this case ? Return the error back to requesting function.
-        Output_Buffer * buff = (Output_Buffer *) malloc(sizeof(Output_Buffer));
         int num_bytes;
         while((num_bytes = read(p_err[0],buff->buff,BUFFER_SIZE)) > 0 ) {
                         //printf("\nError:%s\n",buff->buff);
@@ -46,6 +47,10 @@ int change_dir(int node, char *relativ_p, int pipe_fd, int clntSocket){
         close(p_err[0]);
         return -1;
     }
+
+    buff->end_packet = 1;
+    buff->num_bytes= 0;
+    write(clntSocket,buff,sizeof(Output_Buffer));
 
     char direcbuff[PATH_MAX];
     if (getcwd(direcbuff, PATH_MAX) != NULL) {
@@ -117,7 +122,7 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
 
             //printf("C1\n");
             if(execvp(args[0],args) < 0) {
-                perror("\nExecution Error: ");
+                perror("\nExecution Error for cmd %s",cmd);
                 exit(1);
             }
         } else {
