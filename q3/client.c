@@ -94,6 +94,7 @@ void list_groups(client_sync client_ds){
         printf("Group Name: %s group index: %d\n", client_ds.group_name[grp_index], client_ds.group_id[grp_index]);
     }
     printf("\n===================\n");
+    fflush(stdout);
 }
 
 void print_msg_details(message msg){
@@ -251,11 +252,11 @@ void client_init(){
 }
 
 void print_menu(){
-    printf("1: Send Message:\n");
+    printf("\n1: Send Message:\n");
     printf("2: Create Group:\n");
     printf("3: Join Group:\n");
     printf("4: List Groups:\n");
-    printf("6: Exit\n");
+    printf("5: Exit\n");
 }
 
 int main(){

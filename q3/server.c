@@ -224,6 +224,11 @@ int create_group_handler(packet msg_pkt){
         strcpy(reply_msg.msg_body, "Group created");
         //storing group id
         reply_msg.source_id = next_free_grp_id;
+        client_sync* client_data = &client_data_ds[msg.source_id];
+
+        strcpy(client_data->group_name[client_data->num_groups], msg.msg_body);
+        client_data->group_id[client_data->num_groups] = next_free_grp_id;
+        client_data->num_groups++;
     }
     int source_queue_id = msgget(msg.source_id, 0);
     reply_pkt.pkt.msg = reply_msg;
@@ -261,12 +266,19 @@ int join_group_handler(packet msg_pkt){
         //group index is there
 
         else{
+            client_sync* client_data = &client_data_ds[msg.source_id];
+
             int member_index = 0;
             while(group_table[grp_index][member_index] != -1){
                 member_index++;
             }
             group_table[grp_index][member_index] = msg.source_id;
             strcpy(reply_msg.msg_body, "Join group request succeeded");
+
+            strcpy(client_data->group_name[client_data->num_groups], group_name_table[grp_index]);
+            client_data->group_id[client_data->num_groups] = grp_index;
+            client_data->num_groups++;
+            printf("Client data num groups %d\n", client_data->num_groups);
         }
 
     }

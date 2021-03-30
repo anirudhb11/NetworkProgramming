@@ -25,7 +25,7 @@
 
 #define MAX_CLIENTS 100
 #define MAX_MEMBERS_PER_GRP 255 //Maximum members who can be in a group
-#define MAX_GROUPS 5 // Maximum groups in
+#define MAX_GROUPS 15 // Maximum groups in
 #define TIME_OUT 10 //time_out in seconds
 #define MAX_QUEUED_MESSAGES 50 // For a person who arrives late in the group he could get receive at max this many messages
 #define MAX_MSG_SIZE 100
