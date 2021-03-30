@@ -46,7 +46,8 @@ typedef struct Command_List {
     int size;
 } Command_List;
 
-int find_map(char *ip, Map* ip_map);
+int find_map_ip(char *ip, Map* ip_map);
+int find_map_node(char *node, Map* ip_map);
 Map* file_loader(char *config_file_path);
 char* rtrim(char* string, char junk);
 char* ltrim(char* string, char junk);

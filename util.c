@@ -1,8 +1,17 @@
 #include "header.h"
 
-int find_map(char *ip, Map* ip_map) {
+int find_map_ip(char *ip, Map* ip_map) {
     for(int i=0 ; i < NODE_COUNT ; i++) {
         if(!strcmp(ip_map[i].ip, ip)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int find_map_node(char *node, Map*ip_map) {
+    for(int i=0 ; i < NODE_COUNT ; i++) {
+        if(!strcmp(ip_map[i].node, node)) {
             return i;
         }
     }

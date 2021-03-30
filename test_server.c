@@ -92,19 +92,30 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
         Output_Buffer * buff = (Output_Buffer*) malloc(sizeof(Output_Buffer));
         
         pid_t exec_proc = fork();
+
+        int input_pipe[2];
+        pipe(input_pipe);
+
         if(exec_proc == 0) {
             //Closing read end of pipe
             close(p[0]);
             close(p_err[0]);
+            close(input_pipe[1]);
+
             close(1);
             dup(p[1]);
             close(2);
             dup(p_err[1]);
+
+            close(0);
+            dup(input_pipe[0]);
             int ch_out = chdir(directories[node]);
             if(ch_out < 0) {
                 perror("\nChange directory error: ");
                 exit(1);
             }
+
+            printf("C1\n");
             if(execvp(args[0],args) < 0) {
                 perror("\nExecution Error: ");
                 exit(1);
@@ -113,7 +124,28 @@ void executor(char * cmd, int node, int clntSocket, int pipe_fd) {
             //Closing write end of pipes.
             close(p[1]);
             close(p_err[1]);
+            //Closing read end of input pipe.
+            close(input_pipe[0]);
+
+            printf("P1\n");
+
             int stat, num_bytes;
+            Input_Buffer* ip_buff = (Input_Buffer *) malloc(sizeof(Input_Buffer));
+
+            while (1)
+            {
+                read(clntSocket, ip_buff, sizeof(Input_Buffer));
+                printf("The read packet is: %s :: %d \n\n", ip_buff->cmd_buff, ip_buff->end_packet);
+                if(ip_buff->end_packet) break;
+
+                write(input_pipe[1],ip_buff->ip_buff,ip_buff->num_bytes);
+            }
+
+            printf("P2\n");
+
+            close(input_pipe[1]);
+            
+
             wait(&stat);
             printf("\nStat is: %d\n",stat);
             if(WIFEXITED(stat)) {
@@ -192,7 +224,7 @@ int main(int argc, char const *argv[])
 
         printf("\n\nHandling client: %s\n",inet_ntoa(clnt_addr.sin_addr));
         int node;
-        if((node = find_map(inet_ntoa(clnt_addr.sin_addr), ip_map)) < 0) {
+        if((node = find_map_ip(inet_ntoa(clnt_addr.sin_addr), ip_map)) < 0) {
             printf("\nClient not in Config File List\n");
             exit(1);
         }
@@ -206,16 +238,17 @@ int main(int argc, char const *argv[])
         if(ret == 0) {
             //Child Process particular to a single node client.
 
-            char cmd_buffer[PATH_MAX];
+            //char cmd_buffer[PATH_MAX];
+            Input_Buffer * ip_buff = (Input_Buffer *) malloc(sizeof(Input_Buffer));
             char c;
             close(servSocket);
             close(direc_pipe[0]);
-            if(read(clntSocket, cmd_buffer, PATH_MAX) == 0) {
+            if(read(clntSocket, ip_buff, sizeof(Input_Buffer)) == 0) {
                 printf("\nProcess ended by client\n");
                 exit(0);
             }
-            printf("\nThe command is: %s and serving process id is: %d\n", cmd_buffer, getpid());
-            executor(cmd_buffer,node,clntSocket, direc_pipe[1]);
+            printf("\nThe command is: %s and serving process id is: %d\n", ip_buff->cmd_buff, getpid());
+            executor(ip_buff->cmd_buff,node,clntSocket, direc_pipe[1]);
             exit(0);
         }
         else {
