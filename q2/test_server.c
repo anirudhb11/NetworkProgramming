@@ -248,9 +248,10 @@ int main(int argc, char const *argv[])
             close(clntSocket);
             close(direc_pipe[1]);
             int count_bytes = read(direc_pipe[0],directories[node],PATH_MAX);
-            if(count_bytes>0 && count_bytes<PATH_MAX) 
+            if(count_bytes>0 && count_bytes<PATH_MAX) {
                 directories[node][count_bytes] = '\0';
-            printf("\nThe changed directory is: %s for node n%d\n", directories[node], node+1);
+                printf("\nThe changed directory is: %s for node n%d\n", directories[node], node+1);
+            }
             wait(NULL);
             close(direc_pipe[0]);
         }

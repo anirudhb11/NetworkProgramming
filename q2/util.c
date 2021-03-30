@@ -10,6 +10,9 @@ int find_map_ip(char *ip, Map* ip_map, int NODE_COUNT) {
 }
 
 int find_map_node(char *node, Map*ip_map, int NODE_COUNT) {
+    if (!strcmp("n*",node)) {
+        return -2;
+    }
     for(int i=0 ; i < NODE_COUNT ; i++) {
         if(!strcmp(ip_map[i].node, node)) {
             return i;
