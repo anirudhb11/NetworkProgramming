@@ -1,6 +1,6 @@
 #include "prefork_server.h"
-int min_idle = 5;
-int max_idle = 7;
+int min_idle = 1;
+int max_idle = 1;
 int curr_idle = 0;
 int pid;
 int active_connections = 0;
@@ -27,9 +27,9 @@ int get_id(int val_to_search){
     return -1;
 }
 
-void kill_process(int pid){
+void kill_process(int pid, char *context){
     int index = get_id(pid);
-    printf("[%d] Sending SIGTERM to %d\n", getpid(), pid);
+    printf("[%d] Sending SIGTERM to %d: %s\n", getpid(), pid, context);
     kill(pid, SIGTERM);
     child_state_info[index][0] = -1;
     pid_map[index] = -1;
@@ -57,7 +57,6 @@ int min_idle_handler(int *spawned_pid_list){
 
     int index = 0;
     while(curr_idle < min_idle){
-
         for(int i=0;i<num_process_to_spawn; i++){
             int id = get_id(-1);
             child_state_info[id][0] = IDLE;
@@ -70,7 +69,7 @@ int min_idle_handler(int *spawned_pid_list){
                 break;
             }
             else{
-                printf("Paren is %d The child is: %d curr idle is %d and min idle is %d\n", getpid(), pid, curr_idle, min_idle);
+
                 curr_idle++;
                 pid_map[id] = pid;
                 //printf("[%d] setting the fd for %d in fdset\n", getpid(), my_fd[0]);
@@ -98,7 +97,7 @@ int max_idle_handler(int *spawned_pid_list, int *killed_pid_list){
     while(curr_idle > max_idle){
         int to_kill_pid = spawned_pid_list[pos];
         killed_pid_list[pos] = to_kill_pid;
-        kill_process(to_kill_pid);
+        kill_process(to_kill_pid, "Max Idle limit exceeded");
         curr_idle--;
         pos++;
     }
@@ -226,16 +225,20 @@ void print_details(){
 int  post_notification_executor(int *spawned_pid_list, int *killed_pid_list){
 
     min_idle_handler(spawned_pid_list);
-    printf("%d\n", pid);
     if(pid == 0){
         return 0;
     }
     max_idle_handler(spawned_pid_list, killed_pid_list);
     return 1;
 }
+
+void parent_ack_handler(int sig){
+    //printf("[%d] Ack recieved from parent:\n", getpid());
+}
 int main(){
 //    printf("Welcome to my server:\n");
 //  TODO: Add unlink related stuff
+    printf("Par pid: %d\n", getpid());
     int sem_id,  listen_fd;
     struct addrinfo addr_info;
     server_init(&sem_id, &listen_fd, &addr_info);
@@ -251,12 +254,12 @@ int main(){
     //    perror("Error operating on semaphore:");
     //}
 
-    min_idle_handler(spawned_pid_list);
+    int spawned = min_idle_handler(spawned_pid_list);
     //server handler
 
     if(pid != 0){
-        printf("Par pid: %d\n", getpid());
-        max_idle_handler(spawned_pid_list, killed_pid_list);
+
+        int killed = max_idle_handler(spawned_pid_list, killed_pid_list);
         //if(semop(sem_id, &increment, 1) < 0){
         //    perror("Error operating on semaphore:");
         //}
@@ -267,14 +270,20 @@ int main(){
         for(int i=0;i<MAX_CHILDREN;i++){
             if(child_unix_fd[i][0] > maxfd){
                 maxfd = child_unix_fd[i][0];
+
             }
         }
         fd_set child_set;
         FD_ZERO(&child_set);
-
         while(1){
-            child_set = child_comm_set;
             print_details();
+            maxfd = 0;
+            for(int i=0;i<MAX_CHILDREN; i++){
+                if(child_unix_fd[i][0] > maxfd){
+                    maxfd = child_unix_fd[i][0];
+                }
+            }
+            child_set = child_comm_set;
             int nready = select(maxfd + 1, &child_set, NULL, NULL, NULL);
             if(nready == -1){
                 perror("Parent select function error: ");
@@ -286,13 +295,11 @@ int main(){
                     if(nread < 0){
                         perror("Read failed:");
                     }
-                    printf("Notification from PID: %d Event type %d conn held %d\n", msg.pid, msg.msg_type, msg.connections_held);
                     int *spawned_pid_list = (int *)malloc(sizeof(int) * MAX_CHILDREN);
                     int *killed_pid_list = (int *)malloc(sizeof(int) * MAX_CHILDREN);
                     int ret = -1;
-                    if(msg.msg_type == KILL_INDICATOR){
-
-                        kill_process(pid_map[i]);
+                    if(msg.msg_type == RECYCLE_INDICATOR){
+                        kill_process(pid_map[i], "Re-cycling connection");
                         ret = post_notification_executor(spawned_pid_list, killed_pid_list);
 
                     }
@@ -303,7 +310,7 @@ int main(){
                         if(child_state_info[index][0] == IDLE){
                             child_state_info[index][0] = SERVING;
                             curr_idle--;
-
+                            //printf("Parent sending SIGUSR1 signal to %d\n", pid);
                             kill(pid, SIGUSR1);
                             ret = post_notification_executor(spawned_pid_list, killed_pid_list);
                         }
@@ -327,7 +334,7 @@ int main(){
 
                     }
                     if(ret == 0){
-                        printf("[%d] jumping to child\n", getpid());
+                        //printf("[%d] jumping to child\n", getpid());
                         goto jump;
                     }
 
@@ -341,8 +348,7 @@ int main(){
     }
     else{
         jump:
-        //signal(SIGUSR1, parent_ack_handler);
-        printf("\n");
+        signal(SIGUSR1, parent_ack_handler);
         char buff[20000];
         strcpy(buff, "HTTP/1.1 200 OK\nDate: Mon, 19 Oct 2009 01:26:17 GMT\nServer: Apache/1.2.6 Red Hat\nContent-Length: 18\nAccept-Ranges: bytes\nKeep-Alive: timeout=15, max=100\nConnection: Keep-Alive\nContent-Type: text/html\n\n<html>Hello</html>");
 
@@ -358,6 +364,7 @@ int main(){
             client_fds[i] = -1;
         }
         int active_connections = 0;
+        int to_recycle = 0;
         while(1){
             rset = all_set;
             //printf("Max fd limit: %d\n", maxfd + 1);
@@ -368,9 +375,8 @@ int main(){
             }
             //printf("Ready desc are: %d\n", nready);
             if(FD_ISSET(listen_fd, &rset)){
-                printf("[%d] listen descriptors are: %d\n", getpid(), nready);
+                //printf("[%d] listen descriptors are: %d\n", getpid(), nready);
                 int sock_fd = accept(listen_fd, (struct sockaddr *)addr_info.ai_addr, (socklen_t *)&addr_len);
-                printf("[%d] Connection accepted, sockfd %d\n", sock_fd);
                 int i;
                 for(i=0;i<MAX_CONNECTIONS;i++){
                     if(client_fds[i] == -1){
@@ -379,25 +385,24 @@ int main(){
                         break;
                     }
                 }
-                printf("\n[%d] Slot at %d, active connections: %d \n", getpid(), i, active_connections);
-                if(i == MAX_CONNECTIONS){
-                    printf("[%d] Connection limit exceeded:\n", getpid());
-                    ipc_message im;
-                    im.pid = getpid();
-                    im.msg_type = KILL_INDICATOR;
+                printf("[%d] Slot at %d\n", getpid(), i);
+                printf("[%d] Active cons: %d\n", getpid(), active_connections);
+                if(active_connections == MAX_CONNECTIONS){
+                    printf("[%d] Connection limit  reached:\n", getpid());
+                    FD_CLR(listen_fd, &all_set);
+                    close(listen_fd);
+                    to_recycle = 1;
 
-                    write(my_fd[1], &im, sizeof(ipc_message));
-                    pause();
                 }
                 //Inform parent you hold 1 more connection
                 ipc_message im;
                 im.pid = getpid();
                 im.msg_type = CONNECTION_ESTABLISHED;
                 im.connections_held = active_connections;
-                printf("[%d] Connection establishment notification to parent, active connections: %d\n", getpid(), active_connections);
+                //printf("[%d] Connection establishment notification to parent, active connections: %d\n", getpid(), active_connections);
                 write(my_fd[1], &im, sizeof(struct ipc_message));
-                pause();
 
+                pause();
                 FD_SET(sock_fd, &all_set);
                 if(sock_fd > maxfd){
                     maxfd = sock_fd;
@@ -412,29 +417,39 @@ int main(){
                     }
                     char read_buff[4096];
                     if(FD_ISSET(client_fds[i], &rset)){
+                       //printf("The ready FD is: %d\n", client_fds[i]);
                        int n = read(client_fds[i], read_buff, 4096);
-                       printf("[%d] Num bytes read: %d\n", getpid(), n);
                        if(n == 0){
-                           printf("[%d] Conneciton closing: ", getpid());
                            active_connections--;
+
                            ipc_message im;
                            im.pid = getpid();
                            im.connections_held =active_connections;
-                           im.msg_type = CONNECTION_CLOSED;
-                           printf("[%d] Connection close notification to parent\n", getpid());
-                           write(my_fd[1], &im, sizeof(ipc_message));
-                           pause();
+                           if(active_connections == 0 && to_recycle == 1){
+                               printf("[%d] Sending recycle indication to parent\n", getpid());
+                               im.msg_type = RECYCLE_INDICATOR;
+                           }
+
+                           else{
+                               im.msg_type = CONNECTION_CLOSED;
+                           }
+
+
+                           //printf("[%d] Connection close notification to parent\n", getpid());
+
                            close(client_fds[i]);
                            FD_CLR(client_fds[i], &all_set);
                            client_fds[i] = -1;
+                           write(my_fd[1], &im, sizeof(ipc_message));
+                           pause();
                        }
                        else{
                            //printf("[%d] Writing reply:\n", getpid());
                            sleep(1);
                            reply_sent++;
-                           printf("[%d] socket FD: %d handled request number %d \n", getpid(), client_fds[i], reply_sent);
+                           //printf("[%d] socket FD: %d handled request number %d \n", getpid(), client_fds[i], reply_sent);
                            send(client_fds[i], buff, strlen(buff), 0);
-                           printf("[%d] Replies sent, socket %d: %d\n", getpid(), client_fds[i], reply_sent);
+                           //printf("Replies sent: %d\n", reply_sent);
                        }
 
                     }

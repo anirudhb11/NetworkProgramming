@@ -19,11 +19,11 @@
 //Message exchange types
 #define CONNECTION_ESTABLISHED 3 //Sent when new connection is established by child
 #define CONNECTION_CLOSED 4 //Sent when connection is closed after request handling
-#define KILL_INDICATOR 5
+#define RECYCLE_INDICATOR 5
 
 #define MAX_CHILDREN 100
 #define MAX_LISTEN 10
-#define MAX_CONNECTIONS 12
+#define MAX_CONNECTIONS 2
 
 //union semun {                   /* Used in calls to semctl() */
 //    int                 val;
