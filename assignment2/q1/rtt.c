@@ -1,20 +1,11 @@
 #include "rtt.h"
 
-struct proto proto_v4 = {proc_v4, send_v4, NULL, NULL, NULL, 0, IPPROTO_ICMP};
-
-#ifdef IPV6
-struct proto proto_v6 = {proc_v6, send_v6, NULL, NULL, 0, IPPROTO_ICMPV6};
-#endif
 
 int datalen = 56;
+int par_pid;
 int ct = 0;
-void sig_alrm(int signo){
-    (*pr->fsend)();
-    ct++;
-    if(ct < 3)
-        alarm(1);
-    return;
-}
+int sock_fdv4;
+int sock_fdv6;
 
 uint16_t in_cksum(uint16_t *addr, int len){
     int nleft = len;
@@ -36,7 +27,7 @@ uint16_t in_cksum(uint16_t *addr, int len){
     return (answer);
 }
 
-void send_v6(){
+void send_v6(int pr_index, int ping_number){
 #ifdef IPV6
     int len;
     struct icmp6_hdr *icmp6;
@@ -48,14 +39,17 @@ void send_v6(){
     icmp6->icmp6_seq = nsent++;
     memset ((icmp6 + 1), 0xa5, datalen);
     gettimeofday ((struct timeval *) (icmp6 + 1), NULL);
+    *((int *)(icmp6->icmp_data + sizeof(struct timeval))) = pr_index;
+    *((int *)(icmp6->icmp_data + sizeof(struct timeval) + sizeof(int))) = ping_number;
     len = 8 + datalen;
-    sendto (sockfd, sendbuf, len, 0, pr->sasend, pr->salen);
+
+    sendto (sock_fdv6, sendbuf, len, 0, pr[pr_index]->sasend, pr[pr_index]->salen);
 
 
 #endif
 }
 
-void send_v4(void){
+void send_v4(int pr_index, int ping_number){
     int len;
     struct icmp *icmp;
     icmp = (struct icmp *)sendbuf;
@@ -65,11 +59,14 @@ void send_v4(void){
     icmp->icmp_seq = nsent++;
     memset (icmp->icmp_data, 0xa5, datalen);
     gettimeofday ((struct timeval *) icmp->icmp_data, NULL);
-    printf("%s\n", icmp->icmp_data);
+    *((int *)(icmp->icmp_data + sizeof(struct timeval))) = pr_index;
+    *((int *)(icmp->icmp_data + sizeof(struct timeval) + sizeof(int))) = ping_number;
+
     len = 8 + datalen;
     icmp->icmp_cksum = 0;
     icmp->icmp_cksum = in_cksum ((u_short *) icmp, len);
-    sendto (sockfd, sendbuf, len, 0, pr->sasend, pr->salen);
+    printf("Sent %d ping\n", ping_number);
+    sendto (sock_fdv4, sendbuf, len, 0, pr[pr_index]->sasend, pr[pr_index]->salen);
 
 }
 
@@ -96,7 +93,21 @@ void init_v6(){
 #endif
 }
 
-void proc_v4(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv){
+void store_rtt(double rtt, int index){
+    rtts[index][reply_received[index]] = rtt;
+    reply_received[index]++;
+    if(reply_received[index] == PINGS){
+        printf("IP address: %s -> ", batch_ips[index]);
+        for(int i=1;i<=PINGS;i++){
+            printf(" RTT%d %.3f, ",i, rtts[index][i-1]);
+        }
+        printf("\n");
+        cleanup(index);
+
+    }
+}
+
+void proc_v4(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv, int index){
     int hlenl, icmplen;
     double rtt;
     struct ip *ip;
@@ -119,15 +130,20 @@ void proc_v4(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv)
             return;
 
         tvsend = (struct timeval *)icmp->icmp_data;
+        int aux_data = *(int *)(icmp->icmp_data + sizeof(struct timeval));
         tv_sub(tvrecv, tvsend);
+
+
         rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
-        printf("%d bytes from seq = %u, ttl=%d, rtt = %.3f ms\n", icmplen, icmp->icmp_seq, ip->ip_ttl, rtt);
+        store_rtt(rtt, index);
+
+
 
     }
 
 }
 
-void proc_v6(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv){
+void proc_v6(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv, int index){
 #ifdef IPV6
     double rtt;
     struct icmp6_hdr *icmp6;
@@ -154,7 +170,7 @@ void proc_v6(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv)
                 break;
             }
         }
-        printf("%d bytes from seq=%u, hlim=",len, ,icmp6->icmp6_seq);
+        /*printf("%d bytes from seq=%u, hlim=",len, ,icmp6->icmp6_seq);
         if(hlim == -1){
             printf("???");
         }
@@ -162,13 +178,26 @@ void proc_v6(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv)
             printf("%d", hlim);
         }
         printf(", rtt=%.3f ms\n", rtt);
+        */
+        store_rtt(rtt, index);
     }
 #endif
 
 }
 
+int find_index_from_ip(char *ip){
+    for(int i=0;i<BATCHSIZE;i++){
+        if(strcmp(ip, batch_ips[i]) == 0){
+            return i;
+        }
+    }
+    printf("No index found for this IP\n");
+    exit(1);
+
+}
 
 void readloop(void){
+    printf("Into read loop:\n");
     int size;
     char recvbuf[BUFSIZE];
     char controlbuf[BUFSIZE];
@@ -176,33 +205,91 @@ void readloop(void){
     struct iovec iov;
     ssize_t n;
     struct timeval tval;
-    printf("family %d proto %d\n", pr->sasend->sa_family, pr->icmpproto);
-    sockfd = socket(pr->sasend->sa_family, SOCK_RAW, pr->icmpproto);
-    if(sockfd == -1){
-        perror("Error creating socket:");
-        exit(1);
-    }
-    printf("The socket fd is: %d\n", sockfd);
+
     setuid(getuid());
 
-    if(pr->finit)
-        (*pr->finit)();
-    size = 60 * 1024;
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
 
-    sig_alrm(SIGALRM);
+    int n_bytes;
+    int is_init_done = 0;
+
+
+
+    //TODO: Needs to be moved into the for loop for message specific stuff
+    //if(pr->finit)
+    //    (*pr->finit)();
+
+    //sig_alrm(SIGALRM);
     iov.iov_base = recvbuf;
     iov.iov_len = sizeof(recvbuf);
 
-    msg.msg_name = pr->sarecv;
+    msg.msg_name = calloc(1, sizeof(struct sockaddr));
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
     msg.msg_control = controlbuf;
-    int rcv_count = 0;
-    for(;;){
+    //make this socket non blocking
+    int flags = fcntl(sock_fdv4, F_GETFL, 0);
+    if(flags == -1){
+        perror("Error obtaining IPV4 socket flags:");
+    }
+    if(fcntl(sock_fdv4, F_SETFL, flags | O_NONBLOCK) == -1){
+        perror("Error setting non blocking flag for IPV4 socket");
+    }
+
+    //Read IPV4 messages
+    char *ipv4_addr;
+    ipv4_addr = (char *)malloc(INET_ADDRSTRLEN);
+
+    while((n = recvmsg(sock_fdv4, &msg, 0)) != -1){
+        //Need the index
+        struct sockaddr_in *addr = (struct sockaddr_in *)msg.msg_name;
+        inet_ntop(AF_INET, &(addr->sin_addr), ipv4_addr, INET_ADDRSTRLEN);
+        printf("IP rcvd packet is: %s numbytes is %ld\n", ipv4_addr, n);
+        int index = find_index_from_ip(ipv4_addr);
+
+        gettimeofday(&tval, NULL);
+        (pr[index]->fproc)(recvbuf, n, &msg, &tval, index);
+
+
+    }
+    if(errno != EWOULDBLOCK){
+        perror("Error post non block read in IPV4:");
+        exit(1);
+    }
+    if(fcntl(sock_fdv4, F_SETFL, flags) == -1){
+        perror("Error restoring flags for IPV4:");
+    }
+
+    flags = fcntl(sock_fdv6, F_GETFL, 0);
+    if(flags == -1){
+        perror("Error obtaining IPV6 socket flags:");
+    }
+    if(fcntl(sock_fdv6, F_SETFL, flags | O_NONBLOCK) == -1){
+        perror("Error setting non blocking flag for IPV6 socket:");
+    }
+    char *ipv6_addr;
+    ipv6_addr = (char *)malloc(INET6_ADDRSTRLEN);
+    while((n = recvmsg(sock_fdv6, &msg, 0 )) != -1){
+        struct sockaddr_in6 *addr = (struct sockaddr_in6 *)msg.msg_name;
+        inet_ntop(AF_INET6, &(addr->sin6_addr), ipv6_addr, INET6_ADDRSTRLEN);
+        int index = find_index_from_ip(ipv6_addr);
+        if(init_done[index] == 0){
+            (pr[index]->finit)();
+        }
+        gettimeofday(&tval, NULL);
+        (pr[index]->fproc)(recvbuf, n, &msg, &tval, index);
+    }
+    if(errno != EWOULDBLOCK){
+        perror("Error post non block read in IPV6:");
+        exit(1);
+    }
+    if(fcntl(sock_fdv6, F_SETFL, flags) == -1){
+        perror("Error restoring flags for IPV6:");
+    }
+    /*for(;;){
         msg.msg_namelen = pr->salen;
         msg.msg_controllen = sizeof(controlbuf);
         n = recvmsg(sockfd, &msg, 0);
+        printf("Family is: %u   \n", ((struct sockaddr *)(msg.msg_name))->sa_family);
         if(n < 0){
             if(errno == EINTR)
                 continue;
@@ -216,7 +303,7 @@ void readloop(void){
         rcv_count++;
         if(rcv_count == 3)
             return;
-    }
+    }*/
 }
 
 struct addrinfo *host_serv(const char *hostname, const char *service, int family, int socktype){
@@ -234,45 +321,142 @@ struct addrinfo *host_serv(const char *hostname, const char *service, int family
     return res;
 }
 
-int main(int argc, char **argv){
-    int c;
-    struct addrinfo *ai;
-    char *h;
+void cleanup(int index){
+    pr[index] = NULL;
+    reply_received[index] = 0;
+    for(int ping_index=0;ping_index<PINGS;ping_index++){
+        rtts[index][ping_index] = 0.0;
+    }
+    init_done[index] = 0;
+    kill(par_pid, SIGUSR1);
+}
 
+FILE* init(char *fname){
+    for(int batch_index=0; batch_index < BATCHSIZE; batch_index++){
+        for(int ping_index =0; ping_index < PINGS; ping_index++){
+            rtts[batch_index][ping_index] = 0.0;
+        }
+        init_done[batch_index] = 0;
+        pr[batch_index] = NULL;
+        batch_ips[batch_index] = (char *)malloc(sizeof(char) * HOSTLEN);
+        reply_received[batch_index] = 0;
+    }
+    FILE *ip_file;
+    if((ip_file = fopen(fname, "r")) == NULL){
+        printf("Could not open file\n");
+        exit(1);
+    }
+    sock_fdv4 = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+    if(sock_fdv4 == -1){
+        perror("Error creating IPV4 socket:");
+        exit(1);
+    }
+    sock_fdv6 = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+    if(sock_fdv6 == -1){
+        perror("Error creating IPV6 socket:");
+        exit(1);
+    }
+    int size = 60 * 1024;
+    if(setsockopt(sock_fdv6, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size)) == -1){
+        perror("Error setting socket options on IPV6 socket");
+        exit(1);
+    }
+    if(setsockopt(sock_fdv4, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size)) == -1){
+        perror("Error setting socket options on IPV4 socket");
+        exit(1);
+    }
+    return ip_file;
+
+}
+
+//-1 means full state all IPs are still pending responses
+int get_next_free_index(){
+    for(int i=0;i<BATCHSIZE; i++){
+        if(pr[i] == NULL){
+            return i;
+        }
+    }
+    return -1;
+}
+
+void signal_handler(int sig){
+    printf("SIGUSR1 signal for releasing pause in main loop");
+}
+
+void sig_alarm(int sig){
+
+    struct timeval curr_time;
+    gettimeofday(&curr_time, NULL);
+
+    for(int index =0; index <BATCHSIZE; index++){
+        if(pr[index] != NULL){
+            struct timeval t_ref = curr_time;
+            tv_sub(&t_ref, &last_requesed_time[index]);
+            if(t_ref.tv_sec >= 1){//clean this up
+                cleanup(index);
+            }
+        }
+    }
+    alarm(1);
+}
+
+int main(int argc, char **argv){
+    par_pid = getpid();
+    FILE *ip_file = init(argv[1]);
     if(argc != 2){
         printf("Please enter correct number of arguments:\n");
         exit(1);
     }
-    host = argv[1];
-    pid = getpid() & 0xffff;
-    signal(SIGALRM, sig_alrm);
+    int n;
+    char host[HOSTLEN];
+    signal(SIGUSR1, signal_handler);
+    signal(SIGALRM, sig_alarm);
+    alarm(1);
+    while((n = fscanf(ip_file, "%[^\n]",host)) != 0){
 
-    ai = host_serv(host, NULL, 0,0);
+        printf("host address %s\n", host);
+        struct addrinfo *ai;
+        int index = get_next_free_index();
+        printf("index is %d\n", index);
+        if(index == -1) {
 
-    if(ai->ai_family == AF_INET){
-        printf("Ipv4 address proto %d\n", ai->ai_protocol);
-        pr = &proto_v4;
-        printf("PRROOOOO: %d\n", proto_v4.icmpproto);
-#ifdef IPV6
-    }
-    else if(ai->ai_family == AF_INET6){
-        printf("ipv6 address\n");
-        pr = &proto_v6;
-        if(IN6_IS_ADDR_V4MAPPED(&(((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr))){
-            printf("Cannot ping IPV4 mapped IPV6 address");
+            index = get_next_free_index();
         }
-#endif
-    }
-    else{
-        printf("Unknown family %d\n", ai->ai_family);
-    }
-    pr->sasend = ai->ai_addr;
-    pr->sarecv = calloc(1, ai->ai_addrlen);
-    pr->salen = ai->ai_addrlen;
-    printf("proto here: %d\n", pr->icmpproto);
+        pid = getpid() & 0xffff;
+        ai = host_serv(host, NULL, 0,0);
+        strcpy(batch_ips[index], host);
 
+        if(ai->ai_family == AF_INET){
+            struct proto proto_v4 = {proc_v4, send_v4, NULL, NULL, NULL, 0, IPPROTO_ICMP};
+            printf("Ipv4 address proto %d\n", ai->ai_protocol);
+            pr[index] = &proto_v4;
+#ifdef IPV6
+            }
+        else if(ai->ai_family == AF_INET6){
+            struct proto proto_v6 = {proc_v6, send_v6, NULL, NULL, 0, IPPROTO_ICMPV6};
+            printf("ipv6 address\n");
+            pr[index] = &proto_v6;
+            if(IN6_IS_ADDR_V4MAPPED(&(((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr))){
+                printf("Cannot ping IPV4 mapped IPV6 address");
+            }
+#endif
+        }
+        else{
+            printf("Unknown family %d\n", ai->ai_family);
+        }
+        pr[index]->sasend = ai->ai_addr;
+        pr[index]->sarecv = calloc(1, ai->ai_addrlen);
+        pr[index]->salen = ai->ai_addrlen;
+
+        for(int ping = 0; ping < PINGS; ping++){
+            (pr[index]->fsend)(index, ping + 1);
+        }
+
+    }
+    sleep(2);
     readloop();
-    exit(0);
+
+
 
 
 
