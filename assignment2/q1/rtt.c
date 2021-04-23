@@ -1,6 +1,6 @@
 #include "rtt.h"
 
-
+int fi = 0;
 int datalen = 56;
 int par_pid;
 int ct = 0;
@@ -30,6 +30,7 @@ uint16_t in_cksum(uint16_t *addr, int len){
 }
 
 void send_v6(int pr_index, int ping_number){
+    printf("Sending in V6\n");
 #ifdef IPV6
     int len;
     struct icmp6_hdr *icmp6;
@@ -57,6 +58,7 @@ void send_v6(int pr_index, int ping_number){
 }
 
 void send_v4(int pr_index, int ping_number){
+    printf("Sending in V4\n");
     int len;
     struct icmp *icmp;
     icmp = (struct icmp *)sendbuf;
@@ -72,7 +74,7 @@ void send_v4(int pr_index, int ping_number){
     len = 8 + datalen;
     icmp->icmp_cksum = 0;
     icmp->icmp_cksum = in_cksum ((u_short *) icmp, len);
-    printf("Sent %d ping\n", ping_number);
+    //printf("Sent %d ping\n", ping_number);
     char *ipv4_addr;
     ipv4_addr = (char *)malloc(INET_ADDRSTRLEN);
     if(sendto (sock_fdv4, sendbuf, len, 0, pr[pr_index]->sasend, pr[pr_index]->salen) == -1){
@@ -82,7 +84,7 @@ void send_v4(int pr_index, int ping_number){
     else{
         struct sockaddr_in *addr = (struct sockaddr_in *)pr[pr_index]->sasend;
         inet_ntop(AF_INET, &(addr->sin_addr), ipv4_addr, INET_ADDRSTRLEN);
-        printf("Dest IP address is: %s\n", ipv4_addr);
+       // printf("Dest IP address is: %s\n", ipv4_addr);
     }
 
 
@@ -138,26 +140,28 @@ void proc_v4(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv,
     if(ip->ip_p != IPPROTO_ICMP){
         return;
     }
-    printf("IP type: %d\n", IPPROTO_ICMP);
+    //printf("IP type: %d\n", IPPROTO_ICMP);
     icmp = (struct icmp *)(ptr + hlenl);
     if((icmplen = len - hlenl) < 8){
         return;
     }
     if(icmp->icmp_type == ICMP_ECHOREPLY){
 
-        printf("ICMP id: %d actual pid %d \n", icmp->icmp_id, pid);
+        //printf("ICMP id: %d actual pid %d \n", icmp->icmp_id, pid);
         if(icmp->icmp_id != pid)
             return;
         if(icmplen < 16)
             return;
-        printf("ICMP type is %d\n", ICMP_ECHOREPLY);
+        //printf("ICMP type is %d\n", ICMP_ECHOREPLY);
         tvsend = (struct timeval *)icmp->icmp_data;
         int aux_data = *(int *)(icmp->icmp_data + sizeof(struct timeval));
+        int ping_number = *((int *)(icmp->icmp_data + sizeof(struct timeval) + sizeof(int)));
+        printf("The ping number while processing is: %d\n", ping_number);
         tv_sub(tvrecv, tvsend);
 
 
         rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
-        printf("Your rtt is: %.3f\n", rtt);
+//        printf("Your rtt is: %.3f\n", rtt);
         store_rtt(rtt, index);
 
 
@@ -209,7 +213,7 @@ void proc_v6(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv,
 }
 
 int find_index_from_ip(char *ip){
-    return 0;
+
     for(int i=0;i<BATCHSIZE;i++){
         if(strcmp(ip, batch_ips[i]) == 0){
             return i;
@@ -249,32 +253,36 @@ void readloop(void){
 
     msg.msg_name = calloc(1, sizeof(struct sockaddr));
     socklen_t len = sizeof(struct sockaddr);
-    printf("len %d len2 %d\n", len, len2);
+    //printf("len %d len2 %d\n", len, len2);
 //    msg.msg_name = pr[0]->sarecv;
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
     msg.msg_control = controlbuf;
+    msg.msg_namelen = len;
+    msg.msg_controllen = sizeof(controlbuf);
 
     //make this socket non blocking
     int flags = fcntl(sock_fdv4, F_GETFL, 0);
     if(flags == -1){
         perror("Error obtaining IPV4 socket flags:");
     }
-    if(fcntl(sock_fdv4, F_SETFL, flags | O_NONBLOCK) == -1){
-        perror("Error setting non blocking flag for IPV4 socket");
-    }
+//    if(fcntl(sock_fdv4, F_SETFL, flags | O_NONBLOCK) == -1){
+//        perror("Error setting non blocking flag for IPV4 socket");
+//    }
 
     //Read IPV4 messages
     char *ipv4_addr;
     ipv4_addr = (char *)malloc(INET_ADDRSTRLEN);
 
     while((n = recvmsg(sock_fdv4, &msg, 0)) != -1){
-        msg.msg_namelen = len;
-        msg.msg_controllen = sizeof(controlbuf);
+
+
         //Need the index
         struct sockaddr_in *addr = (struct sockaddr_in *)msg.msg_name;
+        printf("Family %d   ", addr->sin_family);
         inet_ntop(AF_INET, &(addr->sin_addr), ipv4_addr, INET_ADDRSTRLEN);
-        printf("IP rcvd packet is: %s numbytes is %ld\n", ipv4_addr, n);
+        printf("(%d) IP rcvd pacamket is: %s numbytes is %ld\n", fi++, ipv4_addr, n);
+
         int index = find_index_from_ip(ipv4_addr);
 
         gettimeofday(&tval, NULL);
@@ -444,15 +452,32 @@ int main(int argc, char **argv){
         printf("Please enter correct number of arguments:\n");
         exit(1);
     }
-    int n;
+
+
     char host[HOSTLEN];
     signal(SIGUSR1, signal_handler);
     signal(SIGALRM, sig_alarm);
     //alarm(1);
-    //while((n = fscanf(ip_file, "%[^\n]",host)) != 0){
+    int ct = 0;
+    //while(fgets(host, HOSTLEN, ip_file)){
     while(1){
-        strcpy(host, "142.250.182.238");
-        printf("host address %s\n", host);
+        if(ct >= 9){
+            break;
+        }
+        //sleep(1);
+        //strcpy(host, "142.250.182.238");
+        if(ct %3 == 0){
+            strcpy(host, "142.250.182.238");
+        }
+        else if(ct %3 == 1){
+            strcpy(host, "142.250.193.37");
+        }
+        else{
+            strcpy(host, "204.79.197.200");
+        }
+        printf("host address %s num characters read \n", host);
+        //int host_len = strlen(host);
+        //host[host_len - 1] = '\0';
         struct addrinfo *ai;
         int index = get_next_free_index();
         printf("index is %d\n", index);
@@ -467,7 +492,7 @@ int main(int argc, char **argv){
 
         if(ai->ai_family == AF_INET){
             struct proto proto_v4 = {proc_v4, send_v4, NULL, NULL, NULL, 0, IPPROTO_ICMP};
-            printf("Ipv4 address proto %d\n", ai->ai_protocol);
+            //printf("Ipv4 address proto %d\n", ai->ai_protocol);
             pr[index] = &proto_v4;
 #ifdef IPV6
             }
@@ -488,12 +513,12 @@ int main(int argc, char **argv){
         pr[index]->sarecv = calloc(1, ai->ai_addrlen);
         pr[index]->salen = ai->ai_addrlen;
 
-        for(int ping = 0; ping < PINGS; ping++){
-            (pr[index]->fsend)(index, ping + 1);
-            sleep(1);
+        //for(int ping = 0; ping < PINGS; ping++){
+        (pr[index]->fsend)(index, ct/3 + 1);
 
-        }
-        break;
+        //}
+        ct ++;
+
 
     }
     //sleep(12);
