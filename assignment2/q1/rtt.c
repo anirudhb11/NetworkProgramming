@@ -6,6 +6,7 @@ int par_pid;
 int ct = 0;
 int sock_fdv4;
 int sock_fdv6;
+struct addrinfo *glob;
 
 uint16_t in_cksum(uint16_t *addr, int len){
     int nleft = len;
@@ -71,6 +72,7 @@ void send_v4(int pr_index, int ping_number){
 }
 
 void tv_sub(struct timeval *out, struct timeval *in){
+    printf("out time %ld in time %ld", out->tv_sec, in->tv_sec);
     if((out->tv_usec -= in->tv_usec) < 0){
         --out->tv_sec;
         out->tv_usec += 1000000;
@@ -205,6 +207,8 @@ void readloop(void){
     struct iovec iov;
     ssize_t n;
     struct timeval tval;
+    socklen_t len = glob->ai_addrlen;
+    printf("glob %d from sock address %ld\n", len, sizeof(struct sockaddr));
 
     setuid(getuid());
 
@@ -222,10 +226,12 @@ void readloop(void){
     iov.iov_base = recvbuf;
     iov.iov_len = sizeof(recvbuf);
 
-    msg.msg_name = calloc(1, sizeof(struct sockaddr));
+//    msg.msg_name = calloc(1, sizeof(struct sockaddr));
+    msg.msg_name = pr[0]->sarecv;
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
     msg.msg_control = controlbuf;
+
     //make this socket non blocking
     int flags = fcntl(sock_fdv4, F_GETFL, 0);
     if(flags == -1){
@@ -240,6 +246,8 @@ void readloop(void){
     ipv4_addr = (char *)malloc(INET_ADDRSTRLEN);
 
     while((n = recvmsg(sock_fdv4, &msg, 0)) != -1){
+        msg.msg_namelen = pr[0]->salen;
+        msg.msg_controllen = sizeof(controlbuf);
         //Need the index
         struct sockaddr_in *addr = (struct sockaddr_in *)msg.msg_name;
         inet_ntop(AF_INET, &(addr->sin_addr), ipv4_addr, INET_ADDRSTRLEN);
@@ -269,6 +277,8 @@ void readloop(void){
     char *ipv6_addr;
     ipv6_addr = (char *)malloc(INET6_ADDRSTRLEN);
     while((n = recvmsg(sock_fdv6, &msg, 0 )) != -1){
+        msg.msg_namelen = len;
+        msg.msg_controllen = sizeof(controlbuf);
         struct sockaddr_in6 *addr = (struct sockaddr_in6 *)msg.msg_name;
         inet_ntop(AF_INET6, &(addr->sin6_addr), ipv6_addr, INET6_ADDRSTRLEN);
         int index = find_index_from_ip(ipv6_addr);
@@ -322,6 +332,7 @@ struct addrinfo *host_serv(const char *hostname, const char *service, int family
 }
 
 void cleanup(int index){
+    printf("INTO CLEANING\n");
     pr[index] = NULL;
     reply_received[index] = 0;
     for(int ping_index=0;ping_index<PINGS;ping_index++){
@@ -392,7 +403,8 @@ void sig_alarm(int sig){
         if(pr[index] != NULL){
             struct timeval t_ref = curr_time;
             tv_sub(&t_ref, &last_requesed_time[index]);
-            if(t_ref.tv_sec >= 1){//clean this up
+            if(t_ref.tv_sec >= 7){//clean this up
+                printf("diff %ld\n", t_ref.tv_sec);
                 cleanup(index);
             }
         }
@@ -424,6 +436,7 @@ int main(int argc, char **argv){
         }
         pid = getpid() & 0xffff;
         ai = host_serv(host, NULL, 0,0);
+        glob = ai;
         strcpy(batch_ips[index], host);
 
         if(ai->ai_family == AF_INET){
@@ -444,6 +457,7 @@ int main(int argc, char **argv){
         else{
             printf("Unknown family %d\n", ai->ai_family);
         }
+        gettimeofday(&last_requesed_time[index], NULL);
         pr[index]->sasend = ai->ai_addr;
         pr[index]->sarecv = calloc(1, ai->ai_addrlen);
         pr[index]->salen = ai->ai_addrlen;
