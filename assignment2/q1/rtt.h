@@ -22,7 +22,7 @@
 
 #define BUFSIZE 4096
 #define BATCHSIZE 32 // Max number of pending requests at any point of time
-#define PINGS 3 //Number of pings per ip
+#define PINGS 4 //Number of pings per ip
 #define THRESHOLD 1 //is the maximum time we wait for a ping
 #define HOSTLEN 128
 char sendbuf[BUFSIZE];

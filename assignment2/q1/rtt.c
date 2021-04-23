@@ -7,6 +7,7 @@ int ct = 0;
 int sock_fdv4;
 int sock_fdv6;
 struct addrinfo *glob;
+int pid;
 
 uint16_t in_cksum(uint16_t *addr, int len){
     int nleft = len;
@@ -112,6 +113,7 @@ void init_v6(){
 
 void store_rtt(double rtt, int index){
     rtts[index][reply_received[index]] = rtt;
+    printf("Rtt stored %.3f \n", rtt);
     reply_received[index]++;
     if(reply_received[index] == PINGS){
         printf("IP address: %s -> ", batch_ips[index]);
@@ -136,22 +138,26 @@ void proc_v4(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv,
     if(ip->ip_p != IPPROTO_ICMP){
         return;
     }
+    printf("IP type: %d\n", IPPROTO_ICMP);
     icmp = (struct icmp *)(ptr + hlenl);
     if((icmplen = len - hlenl) < 8){
         return;
     }
     if(icmp->icmp_type == ICMP_ECHOREPLY){
+
+        printf("ICMP id: %d actual pid %d \n", icmp->icmp_id, pid);
         if(icmp->icmp_id != pid)
             return;
         if(icmplen < 16)
             return;
-
+        printf("ICMP type is %d\n", ICMP_ECHOREPLY);
         tvsend = (struct timeval *)icmp->icmp_data;
         int aux_data = *(int *)(icmp->icmp_data + sizeof(struct timeval));
         tv_sub(tvrecv, tvsend);
 
 
         rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
+        printf("Your rtt is: %.3f\n", rtt);
         store_rtt(rtt, index);
 
 
@@ -210,7 +216,7 @@ int find_index_from_ip(char *ip){
         }
     }
     printf("No index found for this IP\n");
-    exit(1);
+    return -1;
 
 }
 
@@ -223,8 +229,7 @@ void readloop(void){
     struct iovec iov;
     ssize_t n;
     struct timeval tval;
-    socklen_t len = glob->ai_addrlen;
-    printf("glob %d from sock address %ld\n", len, sizeof(struct sockaddr));
+    socklen_t len2 = glob->ai_addrlen;
 
     setuid(getuid());
 
@@ -242,8 +247,10 @@ void readloop(void){
     iov.iov_base = recvbuf;
     iov.iov_len = sizeof(recvbuf);
 
-//    msg.msg_name = calloc(1, sizeof(struct sockaddr));
-    msg.msg_name = pr[0]->sarecv;
+    msg.msg_name = calloc(1, sizeof(struct sockaddr));
+    socklen_t len = sizeof(struct sockaddr);
+    printf("len %d len2 %d\n", len, len2);
+//    msg.msg_name = pr[0]->sarecv;
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
     msg.msg_control = controlbuf;
@@ -262,7 +269,7 @@ void readloop(void){
     ipv4_addr = (char *)malloc(INET_ADDRSTRLEN);
 
     while((n = recvmsg(sock_fdv4, &msg, 0)) != -1){
-        msg.msg_namelen = pr[0]->salen;
+        msg.msg_namelen = len;
         msg.msg_controllen = sizeof(controlbuf);
         //Need the index
         struct sockaddr_in *addr = (struct sockaddr_in *)msg.msg_name;
@@ -355,7 +362,7 @@ void cleanup(int index){
         rtts[index][ping_index] = 0.0;
     }
     init_done[index] = 0;
-    kill(par_pid, SIGUSR1);
+    kill(getpid(), SIGUSR1);
 }
 
 FILE* init(char *fname){
@@ -399,6 +406,7 @@ FILE* init(char *fname){
 
 //-1 means full state all IPs are still pending responses
 int get_next_free_index(){
+
     for(int i=0;i<BATCHSIZE; i++){
         if(pr[i] == NULL){
             return i;
@@ -430,7 +438,7 @@ void sig_alarm(int sig){
 }
 
 int main(int argc, char **argv){
-    par_pid = getpid();
+    pid = getpid() & 0xffff;
     FILE *ip_file = init(argv[1]);
     if(argc != 2){
         printf("Please enter correct number of arguments:\n");
@@ -440,9 +448,10 @@ int main(int argc, char **argv){
     char host[HOSTLEN];
     signal(SIGUSR1, signal_handler);
     signal(SIGALRM, sig_alarm);
-    alarm(1);
-    while((n = fscanf(ip_file, "%[^\n]",host)) != 0){
-
+    //alarm(1);
+    //while((n = fscanf(ip_file, "%[^\n]",host)) != 0){
+    while(1){
+        strcpy(host, "142.250.182.238");
         printf("host address %s\n", host);
         struct addrinfo *ai;
         int index = get_next_free_index();
@@ -451,7 +460,7 @@ int main(int argc, char **argv){
 
             index = get_next_free_index();
         }
-        pid = getpid() & 0xffff;
+
         ai = host_serv(host, NULL, 0,0);
         glob = ai;
         strcpy(batch_ips[index], host);
@@ -481,10 +490,14 @@ int main(int argc, char **argv){
 
         for(int ping = 0; ping < PINGS; ping++){
             (pr[index]->fsend)(index, ping + 1);
+            sleep(1);
+
         }
+        break;
 
     }
-    sleep(2);
+    //sleep(12);
+
     readloop();
 
 
