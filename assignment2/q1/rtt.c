@@ -44,7 +44,12 @@ void send_v6(int pr_index, int ping_number){
     *((int *)(icmp6->icmp_data + sizeof(struct timeval) + sizeof(int))) = ping_number;
     len = 8 + datalen;
 
-    sendto (sock_fdv6, sendbuf, len, 0, pr[pr_index]->sasend, pr[pr_index]->salen);
+    if(sendto (sock_fdv6, sendbuf, len, 0, pr[pr_index]->sasend, pr[pr_index]->salen) == -1){
+
+        perror("Error sending message:");
+    }
+
+
 
 
 #endif
@@ -67,12 +72,22 @@ void send_v4(int pr_index, int ping_number){
     icmp->icmp_cksum = 0;
     icmp->icmp_cksum = in_cksum ((u_short *) icmp, len);
     printf("Sent %d ping\n", ping_number);
-    sendto (sock_fdv4, sendbuf, len, 0, pr[pr_index]->sasend, pr[pr_index]->salen);
+    char *ipv4_addr;
+    ipv4_addr = (char *)malloc(INET_ADDRSTRLEN);
+    if(sendto (sock_fdv4, sendbuf, len, 0, pr[pr_index]->sasend, pr[pr_index]->salen) == -1){
+
+        perror("Error sending message:");
+    }
+    else{
+        struct sockaddr_in *addr = (struct sockaddr_in *)pr[pr_index]->sasend;
+        inet_ntop(AF_INET, &(addr->sin_addr), ipv4_addr, INET_ADDRSTRLEN);
+        printf("Dest IP address is: %s\n", ipv4_addr);
+    }
+
 
 }
 
 void tv_sub(struct timeval *out, struct timeval *in){
-    printf("out time %ld in time %ld", out->tv_sec, in->tv_sec);
     if((out->tv_usec -= in->tv_usec) < 0){
         --out->tv_sec;
         out->tv_usec += 1000000;
@@ -188,6 +203,7 @@ void proc_v6(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv,
 }
 
 int find_index_from_ip(char *ip){
+    return 0;
     for(int i=0;i<BATCHSIZE;i++){
         if(strcmp(ip, batch_ips[i]) == 0){
             return i;
@@ -357,6 +373,7 @@ FILE* init(char *fname){
         printf("Could not open file\n");
         exit(1);
     }
+    printf("Socket family %d and socket proto %d\n", AF_INET, IPPROTO_ICMP);
     sock_fdv4 = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     if(sock_fdv4 == -1){
         perror("Error creating IPV4 socket:");
