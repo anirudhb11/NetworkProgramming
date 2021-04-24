@@ -20,11 +20,14 @@
 #include <stdio.h>
 #include <fcntl.h>
 
-#define BUFSIZE 4096
-#define BATCHSIZE 32 // Max number of pending requests at any point of time
+#define BUFSIZE 1500
+#define BATCHSIZE 15 // Max number of pending requests at any point of time
 #define PINGS 3 //Number of pings per ip
 #define THRESHOLD 1 //is the maximum time we wait for a ping
 #define HOSTLEN 128
+#define MICRO_SEC_TIMEOUT 500000
+#define SEC_TIMEOUT 0
+#define IPV6 1
 char sendbuf[BUFSIZE];
 
 
@@ -35,8 +38,8 @@ pid_t pid;
 int sockfd;
 
 void init_v6(void);
-void proc_v4(char *, ssize_t, struct msghdr *, struct timeval *, int);
-void proc_v6(char *, ssize_t, struct msghdr *, struct timeval *, int);
+int proc_v4(char *, ssize_t, struct msghdr *, struct timeval *, int);
+int proc_v6(char *, ssize_t, struct msghdr *, struct timeval *, int);
 void send_v4(int, int);
 void send_v6(int, int);
 void readloop(void);
@@ -45,7 +48,7 @@ void tv_sub(struct timeval *, struct timeval *);
 void cleanup(int index);
 
 struct proto{
-    void (*fproc)(char *, ssize_t, struct msghdr *, struct timeval *, int);
+    int (*fproc)(char *, ssize_t, struct msghdr *, struct timeval *, int);
     void (*fsend)(int, int);
     void (*finit)(void);
     struct sockaddr *sasend;
@@ -55,6 +58,7 @@ struct proto{
 } *pr[BATCHSIZE];
 
 int reply_received[BATCHSIZE];
+int requests_sent[BATCHSIZE];
 struct timeval last_requesed_time[BATCHSIZE];
 double rtts[BATCHSIZE][PINGS];
 char *batch_ips[BATCHSIZE];
