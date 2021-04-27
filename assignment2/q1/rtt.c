@@ -20,9 +20,9 @@ int free_space(){
             tv_sub(&t_ref, &last_requesed_time[index]);
             if(t_ref.tv_sec > SEC_TIMEOUT || (t_ref.tv_sec == SEC_TIMEOUT && t_ref.tv_usec >= MICRO_SEC_TIMEOUT)){//clean this up
                 int pings_done = reply_received[index];
-                printf("IP address: %s got %d pings -> ", batch_ips[index], pings_done);
+                printf("IP address: %-26s got %d pings -> ", batch_ips[index], pings_done);
                 for(int i=0;i<pings_done;i++){
-                    printf("RTT%d: %.3f, ", i + 1, rtts[index][i]);
+                    printf("RTT%d: %8.3f, ", i + 1, rtts[index][i]);
                 }
                 printf("\n");
                 cleaned ++;
@@ -73,7 +73,7 @@ void send_v6(int pr_index, int ping_number){
     char *ipv6_addr = malloc(INET6_ADDRSTRLEN);
     struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)pr[pr_index]->sasend;
     inet_ntop(AF_INET6, &(ipv6->sin6_addr), ipv6_addr, INET6_ADDRSTRLEN);
-    //printf("IPV6 address is %s\n", ipv6_addr);
+
 
     if(sendto (sock_fdv6, sendbuf, len, 0, pr[pr_index]->sasend, pr[pr_index]->salen) == -1){
         //printf("Error num: %d\n", errno);
@@ -124,7 +124,7 @@ void send_v4(int pr_index, int ping_number){
     else{
         struct sockaddr_in *addr = (struct sockaddr_in *)pr[pr_index]->sasend;
         inet_ntop(AF_INET, &(addr->sin_addr), ipv4_addr, INET_ADDRSTRLEN);
-       // printf("Dest IP address is: %s\n", ipv4_addr);
+        // printf("Dest IP address is: %s\n", ipv4_addr);
     }
 
 
@@ -146,9 +146,9 @@ void init_v6(){
     ICMP6_FILTER_SETPASS(ICMP6_ECHO_REPLY, &myfilt);
     setsockopt(sockfd, IPPROTO_IPV6, ICMP6_FILTER, &myfilt,sizeof (myfilt));
 #ifdef IPV6_RECVHOPLIMIT
-     setsockopt (sockfd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on));
+    setsockopt (sockfd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on));
 #else
-     setsockopt (sockfd, IPPROTO_IPV6, IPV6_HOPLIMIT, &on, sizeof(on));
+    setsockopt (sockfd, IPPROTO_IPV6, IPV6_HOPLIMIT, &on, sizeof(on));
 #endif
 #endif
 }
@@ -158,9 +158,9 @@ int store_rtt(double rtt, int index){
     //printf("Rtt stored %.3f \n", rtt);
     reply_received[index]++;
     if(reply_received[index] == PINGS){
-        printf("IP address: %s got %d pings -> ", batch_ips[index], PINGS);
+        printf("IP address: %-26s got %d pings -> ", batch_ips[index], PINGS);
         for(int i=1;i<=PINGS;i++){
-            printf(" RTT%d %.3f ms, ",i, rtts[index][i-1]);
+            printf("RTT%d: %8.3f, ",i, rtts[index][i-1]);
         }
         printf("\n");
 
@@ -206,6 +206,7 @@ int proc_v4(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv, 
         return store_rtt(rtt, index);
 
     }
+    return -1;
 
 }
 
@@ -218,6 +219,7 @@ int proc_v6(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv, 
 
     int hlim;
     icmp6 = (struct icmp6_hdr *) ptr;
+
     if(len < 8)
         return -1;
     if(icmp6->icmp6_type == ICMP6_ECHO_REPLY){
@@ -247,18 +249,19 @@ int proc_v6(char *ptr, ssize_t len, struct msghdr *msg, struct timeval *tvrecv, 
         */
         return store_rtt(rtt, index);
     }
+    return -1;
 #endif
 
 }
 
 int find_index_from_ip(char *ip){
-
+    //printf("ip: %s\n",ip);
     for(int i=0;i<BATCHSIZE;i++){
         if(strcmp(ip, batch_ips[i]) == 0){
             return i;
         }
     }
-    printf("No index found for this IP\n");
+    //printf("No index found for this IP\n");
     return -1;
 
 }
@@ -329,14 +332,19 @@ void readloop(void){
 
         int index = find_index_from_ip(ipv4_addr);
         if(index == -1){
-            printf("invalid ip rcvd %s", ipv4_addr);
+            //printf("invalid ip rcvd %s", ipv4_addr);
             continue;
         }
 
         gettimeofday(&tval, NULL);
 
 
-        (pr[index]->fproc)(recvbuf, n, &msg, &tval, index);
+        int x = (pr[index]->fproc)(recvbuf, n, &msg, &tval, index);
+
+        if(x == -1){
+            continue;
+        }
+
         //printf("%d number reply IP for which msg has been received %s\n", reply_received[index], ipv4_addr);
         if(requests_sent[index] < PINGS){
             last_requesed_time[index] = tval;
@@ -365,23 +373,32 @@ void readloop(void){
     }
     char *ipv6_addr;
     ipv6_addr = (char *)malloc(INET6_ADDRSTRLEN);
+
+    msg.msg_name = (struct sockaddr_in6 *)calloc(1, sizeof(struct sockaddr_in6));
+    len = sizeof(struct sockaddr_in6);
+    //printf("len is: %d\n", len);
+
     while((n = recvmsg(sock_fdv6, &msg, 0 )) != -1){
-        msg.msg_namelen = len;
-        msg.msg_controllen = sizeof(controlbuf);
+
         struct sockaddr_in6 *addr = (struct sockaddr_in6 *)msg.msg_name;
-        inet_ntop(AF_INET6, &(addr->sin6_addr), ipv6_addr, INET6_ADDRSTRLEN);
+        //printf("len is inside: %d\n", len);
+        inet_ntop(AF_INET6, (struct in6_addr *)&(addr->sin6_addr), ipv6_addr, INET6_ADDRSTRLEN);
+        //printf("IPV6 len %ld and val %s\n", strlen(ipv6_addr), ipv6_addr);
+
+        //printf("IPV6 address is: %s\n", ipv6_addr);
         int index = find_index_from_ip(ipv6_addr);
         if(index == -1){
-            printf("invalid ip rcvd %s", ipv6_addr);
+            //printf("invalid ip rcvd %s", ipv6_addr);
             continue;
         }
 
-        if(init_done[index] == 0){
-            (pr[index]->finit)();
-            init_done[index] = 1;
-        }
         gettimeofday(&tval, NULL);
-        (pr[index]->fproc)(recvbuf, n, &msg, &tval, index);
+        int x = (pr[index]->fproc)(recvbuf, n, &msg, &tval, index);
+
+        if(x == -1){
+            //printf(" I am in x and reply rcvd is %d\n", reply_received[index]);
+            continue;
+        }
         if(requests_sent[index] < PINGS){
             last_requesed_time[index] = tval;
             pr[index]->fsend(index, reply_received[index] + 1);
@@ -505,6 +522,7 @@ int is_pending_ip(){
 }
 
 struct proto* get_proto_structure(int family){
+    //printf("Passed family is: %d\n", family);
     if(family == AF_INET){
         struct proto *proto_v4 = (struct proto *)malloc(sizeof(struct proto));
         proto_v4->fproc = proc_v4;
@@ -514,6 +532,7 @@ struct proto* get_proto_structure(int family){
         return proto_v4;
     }
     else if(family == AF_INET6){
+        //printf("Family Is %d\n", AF_INET6);
         struct proto *proto_v6 = (struct proto *)malloc(sizeof(struct proto));
         proto_v6->fproc = proc_v6;
         proto_v6->fsend = send_v6;
@@ -523,6 +542,7 @@ struct proto* get_proto_structure(int family){
     }
     else{
         printf("Wrong family provided\n");
+        exit(1);
     }
 }
 
@@ -545,6 +565,7 @@ int main(int argc, char **argv){
     char host[255];
     //alarm(1);
     int ct = 0;
+
     while(fgets(host, HOSTLEN, ip_file)){
         int host_len = strlen(host);
         host[host_len - 1] = '\0';
@@ -561,21 +582,42 @@ int main(int argc, char **argv){
         }
         //printf("Index %d host address: %s\n", index,host);
         ai = host_serv(host, NULL, 0,0);
-        strcpy(batch_ips[index], host);
+        if(ai == NULL){
+            printf("Couldn't fetch address for IP %s\n", host);
+            continue;
+        }
+        //strcpy(batch_ips[index], host);
 
         if(ai->ai_family == AF_INET){
             //struct proto proto_v4 = {proc_v4, send_v4, NULL, NULL, NULL, 0, IPPROTO_ICMP};
             //printf("Ipv4 address proto %d\n", ai->ai_protocol);
             pr[index] = get_proto_structure(AF_INET);
+            char *ipv4_addr;
+            ipv4_addr = (char *)malloc(INET_ADDRSTRLEN);
+            struct sockaddr_in *addr = (struct sockaddr_in *)ai->ai_addr;
+            inet_ntop(AF_INET, &(addr->sin_addr), ipv4_addr, INET_ADDRSTRLEN);
+            strcpy(batch_ips[index], ipv4_addr);
+
+
 #ifdef IPV6
-            }
+        }
         else if(ai->ai_family == AF_INET6){
             //struct proto proto_v6 = {proc_v6, send_v6, NULL, NULL, 0, IPPROTO_ICMPV6};
             //printf("ipv6 address\n");
+            //printf("Index of IP address %d AF inet 6 %d\n", index, AF_INET6);
             pr[index] = get_proto_structure(AF_INET6);
+
+
             if(IN6_IS_ADDR_V4MAPPED(&(((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr))){
                 printf("Cannot ping IPV4 mapped IPV6 address");
             }
+            char *ipv6_addr = malloc(INET6_ADDRSTRLEN);
+            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)ai->ai_addr;
+            inet_ntop(AF_INET6, &(ipv6->sin6_addr), ipv6_addr, INET6_ADDRSTRLEN);
+            strcpy(batch_ips[index], ipv6_addr);
+            (pr[index]->finit)();
+
+
 #endif
         }
         else{
@@ -597,17 +639,7 @@ int main(int argc, char **argv){
     }
     gettimeofday(&t_end, NULL);
     tv_sub(&t_end, &t_start);
-    printf("total time %ld (sec) and %ld (micro-sec)\n", t_end.tv_sec, t_end.tv_usec);
-
-
-
-
-
-
-
-
-
-
-
-
+    printf("Total time %ld (sec) and %ld (micro-sec) ips processed %d\n", t_end.tv_sec, t_end.tv_usec, ct);
+    double time_in_sec = (double)t_end.tv_sec + (double)t_end.tv_usec * 1.0e-6;
+    printf("Throughput %.5f ips/sec\n", (double)ct/time_in_sec);
 }
