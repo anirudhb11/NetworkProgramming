@@ -1,0 +1,4 @@
+Please run the following steps to execute the code
+
+1. Run "make" to generate executables
+2. Run "./rtt <name of IP address file>" (if the name of IP addresses file is "ips.txt" you should run "./rtt ips.txt")

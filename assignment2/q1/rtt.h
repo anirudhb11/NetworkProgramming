@@ -23,7 +23,6 @@
 #define BUFSIZE 1500
 #define BATCHSIZE 32 // Max number of pending requests at any point of time
 #define PINGS 3 //Number of pings per ip
-#define THRESHOLD 1 //is the maximum time we wait for a ping
 #define HOSTLEN 128
 #define MICRO_SEC_TIMEOUT 500000
 #define SEC_TIMEOUT 0

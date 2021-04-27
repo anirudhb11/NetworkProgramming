@@ -569,9 +569,6 @@ int main(int argc, char **argv){
     while(fgets(host, HOSTLEN, ip_file)){
         int host_len = strlen(host);
         host[host_len - 1] = '\0';
-
-
-
         struct addrinfo *ai;
         int index = get_next_free_index();
 
