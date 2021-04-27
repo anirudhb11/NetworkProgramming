@@ -1,0 +1,6 @@
+To run the program please execute the following commands in order
+
+1. Run "make"
+2. Run "./prefork_server --min_spare 3 --max_spare 4 --max_req 2" (You can change the arguments as required)
+3. Open another terminal and run
+    "httperf --server localhost --port 80 --rate 100 --num-conn 8  --num-calls 7 --timeout 60"
