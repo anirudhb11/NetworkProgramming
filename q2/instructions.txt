@@ -1,3 +1,0 @@
-1) Run make (Run make clean to erase the object files to make a fresh build)
-2) Run ./server from build directory and input the username for home folder.
-3) Run ./client and input commands
