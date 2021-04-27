@@ -1,6 +1,7 @@
 #include "prefork_server.h"
-int min_idle = 1;
-int max_idle = 1;
+int min_idle;
+int max_idle;
+int MAX_CONNECTIONS;
 int curr_idle = 0;
 int pid;
 int active_connections = 0;
@@ -12,8 +13,8 @@ int child_unix_fd[MAX_CHILDREN][2];
 int my_fd[2];
 fd_set child_comm_set;
 
-struct sembuf increment;
-struct sembuf decrement;
+//struct sembuf increment;
+//struct sembuf decrement;
 
 /**
  * @return Id corresponding to val_to_search (-1: new process request, else existing process id), -1 in case of error
@@ -60,6 +61,7 @@ int min_idle_handler(int *spawned_pid_list){
         for(int i=0;i<num_process_to_spawn; i++){
             int id = get_id(-1);
             child_state_info[id][0] = IDLE;
+            child_state_info[id][1] = 0;
 
             socketpair(AF_UNIX, SOCK_STREAM, 0, my_fd);
             pid = fork();
@@ -97,14 +99,14 @@ int max_idle_handler(int *spawned_pid_list, int *killed_pid_list){
     while(curr_idle > max_idle){
         int to_kill_pid = spawned_pid_list[pos];
         killed_pid_list[pos] = to_kill_pid;
-        kill_process(to_kill_pid, "Max Idle limit exceeded");
+        kill_process(to_kill_pid, "Max Idle limit process count exceeded");
         curr_idle--;
         pos++;
     }
     return pos;
 }
 
-void server_init(int *sem_id, int *listen_fd, struct addrinfo *addr_info){
+void server_init(int *listen_fd, struct addrinfo *addr_info){
     FD_ZERO(&child_comm_set);
     for(int pos =0; pos < MAX_CHILDREN; pos++){
         child_state_info[pos][0] = -1;
@@ -112,30 +114,6 @@ void server_init(int *sem_id, int *listen_fd, struct addrinfo *addr_info){
         child_unix_fd[pos][0] = -1;
         child_unix_fd[pos][1] = -1;
 
-    }
-
-    *sem_id = semget(IPC_PRIVATE, 1, 0666 | IPC_CREAT);
-    if(*sem_id == -1){
-        perror("Error creating semaphore:");
-        exit(1);
-    }
-
-    decrement.sem_num = 0;
-    decrement.sem_flg = 0;
-    decrement.sem_op = -1;
-
-    increment.sem_num = 0;
-    increment.sem_flg = 0;
-    increment.sem_op = 1;
-
-    union semun arg;
-    arg.val = 1;
-    printf("The semaphore id: %d\n", *sem_id);
-
-    if (semctl(*sem_id, 0, SETVAL, arg) == -1)
-    {
-        perror("Error initializing semaphore:");
-        exit(1);
     }
 
     struct addrinfo hints, *res, *ressave;
@@ -159,7 +137,7 @@ void server_init(int *sem_id, int *listen_fd, struct addrinfo *addr_info){
         setsockopt(*listen_fd, SOL_SOCKET, SO_REUSEADDR, &op, sizeof(int));
         if(bind(*listen_fd, res->ai_addr, res->ai_addrlen) == 0){
 
-            printf("Bound at %d'th address family %d  \n", ct, res->ai_family);
+            //printf("Bound at %d'th address family %d  \n", ct, res->ai_family);
             addr_info = res;
             break;
         }
@@ -171,7 +149,7 @@ void server_init(int *sem_id, int *listen_fd, struct addrinfo *addr_info){
         ct++;
     }
     if(res == NULL){
-        printf("[ERROR] Couldn't bind to any address:\n");
+        printf("[ERROR] Couldn't bind to any address, try seeing if PORT 80 is used by someother application\n");
         exit(1);
     }
     //printf("The value of listen fd is: %d\n", *listen_fd);
@@ -212,8 +190,22 @@ void print_ip_addr(struct addrinfo *res){
 //    printf("Received ack from parent for action\n");
 //}
 
-void print_details(){
+void print_details(int fl){
     printf("\n====================\n");
+    if(fl){
+        printf("Signal handler update:\n");
+    }
+    else{
+        printf("Process pool change update:\n");
+    }
+    int num_children =0;
+    for(int i=0;i<MAX_CHILDREN; i++){
+        if(child_state_info[i][0] != -1){
+            num_children++;
+        }
+    }
+    printf("Number of children are %d\n", num_children);
+
     printf("Process pool:\n");
     for(int i=0;i<MAX_CHILDREN;i++){
         if(child_state_info[i][0] != -1){
@@ -235,13 +227,37 @@ int  post_notification_executor(int *spawned_pid_list, int *killed_pid_list){
 void parent_ack_handler(int sig){
     //printf("[%d] Ack recieved from parent:\n", getpid());
 }
-int main(){
-//    printf("Welcome to my server:\n");
-//  TODO: Add unlink related stuff
-    printf("Par pid: %d\n", getpid());
-    int sem_id,  listen_fd;
+
+void sig_int_handler(int sig){
+    print_details(1);
+}
+
+int main(int argc, char *argv[]){
+
+    //format of running ./a.out --min_spare x --max_spare y --max_req z
+    char err_message[200] = "Incorrect usage, supply in format (for ex): ./prefork_server --min_spare 3 --max_spare 4 --max_req 3";
+    if(argc != 7){
+        printf("%s\n", err_message);
+        exit(1);
+    }
+    if(strcmp(argv[1], "--min_spare") != 0 || strcmp(argv[3], "--max_spare") || strcmp(argv[5], "--max_req") != 0){
+        printf("%s\n", err_message);
+        exit(1);
+    }
+    min_idle = atoi(argv[2]);
+    max_idle = atoi(argv[4]);
+    MAX_CONNECTIONS = atoi(argv[6]);
+    if(min_idle > max_idle){
+        printf("Cannot have minimum idle connections greater than maximum idle connections\n");
+        exit(1);
+    }
+
+
+
+
+    int listen_fd;
     struct addrinfo addr_info;
-    server_init(&sem_id, &listen_fd, &addr_info);
+    server_init(&listen_fd, &addr_info);
     //print_ip_addr(&addr_info);
     int *spawned_pid_list = (int *)malloc(sizeof(int) * MAX_CHILDREN);
     int *killed_pid_list = (int *)malloc(sizeof(int) * MAX_CHILDREN);
@@ -258,6 +274,7 @@ int main(){
     //server handler
 
     if(pid != 0){
+        signal(SIGINT, sig_int_handler);
 
         int killed = max_idle_handler(spawned_pid_list, killed_pid_list);
         //if(semop(sem_id, &increment, 1) < 0){
@@ -275,18 +292,34 @@ int main(){
         }
         fd_set child_set;
         FD_ZERO(&child_set);
+        int intr = 0;
         while(1){
-            print_details();
+            if(intr == 0){
+                print_details(0);
+            }
+            else{
+                intr = 0;
+            }
             maxfd = 0;
             for(int i=0;i<MAX_CHILDREN; i++){
                 if(child_unix_fd[i][0] > maxfd){
                     maxfd = child_unix_fd[i][0];
                 }
             }
+            jmp2:
             child_set = child_comm_set;
             int nready = select(maxfd + 1, &child_set, NULL, NULL, NULL);
             if(nready == -1){
-                perror("Parent select function error: ");
+
+                intr = 1;
+                if(errno == EINTR){
+                    goto jmp2;
+
+                }
+                else{
+                    perror("Parent select function error: ");
+                    exit(1);
+                }
             }
             for(int i=0;i<MAX_CHILDREN;i++){
                 if(FD_ISSET(child_unix_fd[i][0], &child_set)){
@@ -324,6 +357,7 @@ int main(){
                         child_state_info[index][1] = msg.connections_held;
                         if(msg.connections_held == 0){
                             child_state_info[index][0] = IDLE;
+                            child_state_info[index][1] = 0;
                             curr_idle++;
                             spawned_pid_list[0] = pid;
                             ret = post_notification_executor(spawned_pid_list, killed_pid_list);
@@ -349,6 +383,8 @@ int main(){
     else{
         jump:
         signal(SIGUSR1, parent_ack_handler);
+        signal(SIGINT, SIG_IGN);
+
         char buff[20000];
         strcpy(buff, "HTTP/1.1 200 OK\nDate: Mon, 19 Oct 2009 01:26:17 GMT\nServer: Apache/1.2.6 Red Hat\nContent-Length: 18\nAccept-Ranges: bytes\nKeep-Alive: timeout=15, max=100\nConnection: Keep-Alive\nContent-Type: text/html\n\n<html>Hello</html>");
 
@@ -385,10 +421,9 @@ int main(){
                         break;
                     }
                 }
-                printf("[%d] Slot at %d\n", getpid(), i);
-                printf("[%d] Active cons: %d\n", getpid(), active_connections);
+
                 if(active_connections == MAX_CONNECTIONS){
-                    printf("[%d] Connection limit  reached:\n", getpid());
+                    printf("[%d] Connection limit reached, %d will not accept more connections\n", getpid(), getpid());
                     FD_CLR(listen_fd, &all_set);
                     close(listen_fd);
                     to_recycle = 1;

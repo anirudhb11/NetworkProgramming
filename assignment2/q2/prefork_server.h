@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <setjmp.h>
+#include <errno.h>
 //States for child process
 #define IDLE 1
 #define SERVING 2
@@ -23,7 +24,6 @@
 
 #define MAX_CHILDREN 100
 #define MAX_LISTEN 10
-#define MAX_CONNECTIONS 2
 
 //union semun {                   /* Used in calls to semctl() */
 //    int                 val;
